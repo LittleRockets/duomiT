@@ -3,6 +3,7 @@
 import argparse
 from contextlib import ExitStack
 import json
+import os
 import sys
 
 from .api_configuration import ApiSelection, configure_api_services, configure_saved_api_services
@@ -11,14 +12,15 @@ from .configuration_store import SqliteModelConfigurationStore
 from .contracts import ChatMessage, RequestContext
 from .errors import DuomitError
 from .local_runtime import LocalRuntime
+from .identity import LocalIdentityStore
 from .model_access import BuilderBinding, ModelBroker, ModelMaterial, ReferenceDesktop
 from .models import IndependentModel, SequentialModel
 from .planning import ReferencePlanner
 from .registry import Capability, DomainRegistry
 
 
-def reference_components(model: str = "sequential"):
-    context = RequestContext("demo-tenant", "demo-user", "demo-request", "demo-trace")
+def reference_components(model: str = "sequential", context: RequestContext | None = None):
+    context = context or RequestContext("demo-tenant", "demo-user", "demo-request", "demo-trace")
     registry = DomainRegistry()
     registry.register(Capability("data.read", "1.0"))
     registry.register(Capability("report.render", "1.0", True))
@@ -48,6 +50,8 @@ def main():
     parser.add_argument("--ask", help="Send text only to the separately configured API assistant")
     parser.add_argument("--config-database", help="Store or load API role configuration; no key values")
     parser.add_argument("--save-config", action="store_true", help="Save explicit API selections without calling models")
+    parser.add_argument("--identity-database", help="Validate a local access token and derive the user identity")
+    parser.add_argument("--token-env", default="DUOMIT_ACCESS_TOKEN", help="Environment variable containing a local access token")
     args = parser.parse_args()
     if bool(args.provider) != bool(args.model_id) or (args.api_key_env and not args.provider):
         parser.error("--provider and --model-id must be configured together")
@@ -68,6 +72,10 @@ def main():
     assistant_selection = ApiSelection(args.assistant_provider, args.assistant_model_id,
                                        args.assistant_api_key_env) if args.assistant_provider else None
     with ExitStack() as cleanup:
+        if args.identity_database:
+            identities = LocalIdentityStore(args.identity_database)
+            cleanup.callback(identities.close)
+            context, planner = reference_components(args.model, identities.authenticate(os.environ.get(args.token_env)))
         if args.config_database:
             store = SqliteModelConfigurationStore(args.config_database)
             cleanup.callback(store.close)
