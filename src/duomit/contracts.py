@@ -316,3 +316,35 @@ class RunSnapshot:
         return {"binding_id": self.binding_id, "binding_revision": self.binding_revision,
                 "material_digest": self.material_digest,
                 "capability_versions": dict(self.capability_versions)}
+
+
+@dataclass(frozen=True)
+class ExtensionVersion:
+    extension_id: str
+    version: str
+    kind: str
+    content_digest: str
+    license_id: str
+
+    def __post_init__(self):
+        for value in (self.extension_id, self.version, self.license_id):
+            identifier(value)
+        require(self.kind in ("document", "skill", "tool-adapter", "model-adapter"),
+                "Unsupported extension kind")
+        require(isinstance(self.content_digest, str) and len(self.content_digest) == 64
+                and all(char in "0123456789abcdef" for char in self.content_digest),
+                "Invalid extension digest")
+
+
+@dataclass(frozen=True)
+class MirrorLease:
+    lease_id: str
+    mirror_id: str
+    extension_id: str
+    version: str
+    content_digest: str
+    run_id: str
+    node_id: str
+    expires_at: float
+    fence: int
+    state: str

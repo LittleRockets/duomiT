@@ -14,6 +14,7 @@ class BoundaryTests(unittest.TestCase):
             "planning": {"dataclasses", "contracts", "errors", "ports", "registry"},
             "registry": {"dataclasses", "contracts", "errors"},
             "assistant": {"contracts", "ports"},
+            "desktop": {"contextlib", "hashlib", "math", "pathlib", "sqlite3", "time", "uuid", "contracts", "errors"},
         }
         for module, imports in approved.items():
             tree = ast.parse((root / f"{module}.py").read_text(encoding="utf-8"))
@@ -25,6 +26,8 @@ class BoundaryTests(unittest.TestCase):
                         self.assertIn(node.module, imports)
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                         self.assertNotIn(node.func.id, {"__import__", "eval", "exec", "open"})
+                    if module == "desktop" and isinstance(node, ast.FunctionDef):
+                        self.assertNotIn(node.name, {"execute", "generate", "complete"})
 
 
 if __name__ == "__main__":

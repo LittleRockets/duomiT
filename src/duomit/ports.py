@@ -3,7 +3,8 @@
 from typing import Protocol
 
 from .contracts import (ApiSelection, AssistantBinding, BuilderBinding, ChatMessage, ChatRequest,
-                        ModelConfiguration, ModelRequest, ModelResponse, Plan, RequestContext, RunSnapshot)
+                        ExtensionVersion, MirrorLease, ModelConfiguration, ModelRequest,
+                        ModelResponse, Plan, RequestContext, RunSnapshot)
 
 
 class ModelPort(Protocol):
@@ -61,3 +62,13 @@ class WorkflowRuntimePort(Protocol):
 class IdentityPort(Protocol):
     def authenticate(self, token: str, *, request_id: str | None = None,
                      trace_id: str | None = None) -> RequestContext: ...
+
+
+class DesktopPort(Protocol):
+    def acquire(self, context: RequestContext, extension_id: str, version: str, run_id: str,
+                node_id: str, idempotency_key: str, *, valid_seconds: float = 60) -> MirrorLease: ...
+    def renew(self, context: RequestContext, lease_id: str, expected_fence: int,
+              *, valid_seconds: float = 60) -> MirrorLease: ...
+    def release(self, context: RequestContext, lease_id: str, expected_fence: int) -> MirrorLease: ...
+    def read(self, context: RequestContext, lease_id: str, expected_fence: int,
+             run_id: str, node_id: str) -> bytes: ...
