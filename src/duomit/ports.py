@@ -2,8 +2,8 @@
 
 from typing import Protocol
 
-from .contracts import (AssistantBinding, BuilderBinding, ChatMessage, ChatRequest,
-                        ModelRequest, ModelResponse, Plan, RequestContext)
+from .contracts import (ApiSelection, AssistantBinding, BuilderBinding, ChatMessage, ChatRequest,
+                        ModelConfiguration, ModelRequest, ModelResponse, Plan, RequestContext, RunSnapshot)
 
 
 class ModelPort(Protocol):
@@ -13,6 +13,8 @@ class ModelPort(Protocol):
 
 
 class PlanningPort(Protocol):
+    @property
+    def snapshot(self) -> RunSnapshot: ...
     def propose(self, context: RequestContext, goal: str) -> Plan: ...
 
 
@@ -39,3 +41,18 @@ class AssistantAccessPort(Protocol):
 
 class AssistantPort(Protocol):
     def respond(self, context: RequestContext, messages: tuple[ChatMessage, ...]) -> ModelResponse: ...
+
+
+class ModelConfigurationStorePort(Protocol):
+    def save(self, context: RequestContext, role: str, selection: ApiSelection,
+             expected_revision: int) -> ModelConfiguration: ...
+    def load(self, context: RequestContext, role: str,
+             revision: int | None = None) -> ModelConfiguration | None: ...
+    def disable(self, context: RequestContext, role: str, expected_revision: int) -> int: ...
+
+
+class WorkflowRuntimePort(Protocol):
+    def create(self, context: RequestContext, plan: Plan, idempotency_key: str,
+               *, snapshot: RunSnapshot | None = None) -> str: ...
+    def inspect(self, context: RequestContext, run_id: str) -> dict: ...
+    def drive(self, context: RequestContext, run_id: str, executor: StepExecutorPort) -> dict: ...

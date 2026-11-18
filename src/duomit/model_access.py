@@ -7,7 +7,7 @@ Only deployment code installs model adapters. Material never includes credential
 from .contracts import (AssistantBinding, BuilderBinding, ChatRequest, ModelMaterial,
                         ModelRequest, ModelResponse, RequestContext)
 from .errors import DuomitError, require
-from .ports import ChatPort, ModelPort
+from .ports import ChatPort, ModelConfigurationStorePort, ModelPort
 
 
 class ReferenceDesktop:
@@ -34,9 +34,11 @@ class ReferenceDesktop:
 class ModelBroker:
     """Runs adapters after checking owner and Desktop material; no provider selection in core."""
 
-    def __init__(self, desktop: ReferenceDesktop, adapters: dict[str, ModelPort | ChatPort]):
+    def __init__(self, desktop: ReferenceDesktop, adapters: dict[str, ModelPort | ChatPort],
+                 *, configurations: ModelConfigurationStorePort | None = None):
         self._desktop = desktop
         self._adapters = dict(adapters)
+        self._configurations = configurations
 
     def generate(self, context: RequestContext, binding: BuilderBinding,
                  request: ModelRequest) -> ModelResponse:
@@ -57,6 +59,11 @@ class ModelBroker:
     def _resolve(self, context, binding, max_output_tokens):
         if (context.tenant_id, context.principal_id) != (binding.tenant_id, binding.principal_id):
             raise DuomitError("NOT_FOUND", "Builder binding is not available")
+        if self._configurations is not None:
+            role = "planner" if type(binding) is BuilderBinding else "assistant"
+            current = self._configurations.load(context, role)
+            if current is None or current.revision != binding.revision:
+                raise DuomitError("CONFIGURATION_CHANGED", "Model binding is no longer current")
         require(max_output_tokens <= binding.max_output_tokens,
                 "Request exceeds binding token budget")
         material = self._desktop.acquire(context, binding.model)

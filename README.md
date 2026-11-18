@@ -29,7 +29,8 @@ duomiT 围绕任务规划、独立工作流与人机协作构建智能组织的�
 | 结构化规划 | JSON Schema、依赖图校验、循环依赖检测、能力范围校验 |
 | LLM API 适配 | GPT / OpenAI、Gemini、DeepSeek、Grok / xAI |
 | 独立助理接口 | 独立模型绑定、显式会话历史、文本建议与复核 |
-| 持久化工作流 | SQLite 状态存储、幂等创建、执行恢复 |
+| 模型配置 | 按用户与角色持久化、历史版本、并发更新校验、停用控制 |
+| 持久化工作流 | SQLite 状态存储、幂等创建、模型与能力版本记录、执行恢复 |
 | 人工审批 | 操作绑定、版本校验、有效期校验 |
 | 取消与异常核对 | 停止后续步骤，对结果不确定的操作保留核对状态 |
 | 事件记录 | 状态与事件事务写入、事件重放与投递确认 |
@@ -101,6 +102,15 @@ python -m duomit --assistant-provider gemini --assistant-model-id "<模型 ID>" 
 ```
 
 规划与助理角色均支持上述四家服务，可分别选择服务商、模型和密钥。未配置的角色不会自动借用另一角色的模型或上下文。助理返回文本建议，不批准操作或启动工作流。
+
+### 保存模型配置
+
+```powershell
+python -m duomit --config-database settings.sqlite3 --save-config --assistant-provider gemini --assistant-model-id "<模型 ID>"
+python -m duomit --config-database settings.sqlite3 --ask "梳理这项需求"
+```
+
+保存操作不调用模型。配置数据库记录模型选择和密钥环境变量名称，不保存密钥值。规划模型同样可通过 `--save-config --provider ... --model-id ...` 保存；后续读取配置时无需重复传入模型参数。
 
 使用 `--api-key-env` 与 `--assistant-api-key-env` 可分别指定密钥环境变量名称。密钥值不应写入命令参数、配置文件或源代码。API 调用可能产生费用，用量与数据保留规则以对应服务商为准。
 

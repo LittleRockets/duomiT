@@ -12,7 +12,7 @@ import sqlite3
 import time
 import uuid
 
-from .contracts import Plan, RequestContext, canonical_json, digest, identifier
+from .contracts import Plan, RequestContext, RunSnapshot, canonical_json, digest, identifier
 from .errors import DuomitError, require
 from .ports import StepExecutorPort
 from .registry import Capability
@@ -28,12 +28,13 @@ class LocalRuntime:
         self._db.execute("PRAGMA journal_mode=WAL")
         with self._transaction():
             version = self._db.execute("PRAGMA user_version").fetchone()[0]
-            require(version in (0, 1, 2), "Unsupported database version")
+            require(version in (0, 1, 2, 3), "Unsupported database version")
             statements = (
                 """CREATE TABLE IF NOT EXISTS runs (
                     id TEXT PRIMARY KEY, tenant TEXT NOT NULL, owner TEXT NOT NULL,
                     idem TEXT NOT NULL, plan TEXT NOT NULL, plan_digest TEXT NOT NULL,
                     state TEXT NOT NULL, revision INTEGER NOT NULL, cancel_requested INTEGER NOT NULL,
+                    snapshot TEXT NOT NULL DEFAULT 'null',
                     UNIQUE(tenant, owner, idem))""",
                 """CREATE TABLE IF NOT EXISTS steps (
                     run_id TEXT NOT NULL REFERENCES runs(id), id TEXT NOT NULL,
@@ -51,7 +52,9 @@ class LocalRuntime:
             if version == 1:
                 self._db.execute("ALTER TABLE outbox ADD COLUMN trace_id TEXT NOT NULL DEFAULT 'legacy'")
                 self._db.execute("ALTER TABLE outbox ADD COLUMN request_id TEXT NOT NULL DEFAULT 'legacy'")
-            self._db.execute("PRAGMA user_version=2")
+            if "snapshot" not in {row["name"] for row in self._db.execute("PRAGMA table_info(runs)")}:
+                self._db.execute("ALTER TABLE runs ADD COLUMN snapshot TEXT NOT NULL DEFAULT 'null'")
+            self._db.execute("PRAGMA user_version=3")
 
     @contextmanager
     def _transaction(self):
@@ -86,8 +89,18 @@ class LocalRuntime:
             (uuid.uuid4().hex, context.tenant_id, context.principal_id, run_id, revision,
              event_type, canonical_json(payload), context.trace_id, context.request_id))
 
-    def create(self, context: RequestContext, plan: Plan, idempotency_key: str) -> str:
+    def create(self, context: RequestContext, plan: Plan, idempotency_key: str,
+               *, snapshot: RunSnapshot | None = None) -> str:
         identifier(idempotency_key)
+        require(snapshot is None or isinstance(snapshot, RunSnapshot), "Invalid run snapshot")
+        snapshot_json = canonical_json(snapshot.to_dict() if snapshot else None)
+        if snapshot is not None:
+            versions = dict(snapshot.capability_versions)
+            for step in plan.steps:
+                require(step.capability in versions, "Snapshot omits a plan capability")
+            for name, version in versions.items():
+                require(name in self._policy and self._policy[name].version == version,
+                        "Snapshot differs from execution policy")
         for step in plan.steps:
             capability = self._policy.get(step.capability)
             require(capability is not None, "Plan exceeds execution policy")
@@ -97,16 +110,18 @@ class LocalRuntime:
             previous = self._db.execute("SELECT * FROM runs WHERE tenant=? AND owner=? AND idem=?",
                                         (context.tenant_id, context.principal_id, idempotency_key)).fetchone()
             if previous:
-                if previous["plan_digest"] != plan.content_digest:
+                if previous["plan_digest"] != plan.content_digest or previous["snapshot"] != snapshot_json:
                     raise DuomitError("CONFLICT", "Idempotency key has different content")
                 return previous["id"]
             run_id = uuid.uuid4().hex
-            self._db.execute("INSERT INTO runs VALUES (?,?,?,?,?,?,?,0,0)",
+            self._db.execute("""INSERT INTO runs
+                (id,tenant,owner,idem,plan,plan_digest,state,revision,cancel_requested,snapshot)
+                VALUES (?,?,?,?,?,?,?,0,0,?)""",
                              (run_id, context.tenant_id, context.principal_id, idempotency_key,
-                              canonical_json(plan.to_dict()), plan.content_digest, "ready"))
+                              canonical_json(plan.to_dict()), plan.content_digest, "ready", snapshot_json))
             for step in plan.steps:
                 operation_key = digest({"run": run_id, "step": step.step_id,
-                                        "plan": plan.content_digest})
+                                        "plan": plan.content_digest, "snapshot": digest(json.loads(snapshot_json))})
                 self._db.execute("INSERT INTO steps VALUES (?,?,?,?,NULL,NULL)",
                                  (run_id, step.step_id, "pending", operation_key))
             self._event(context, run_id, "run.created", {"plan_digest": plan.content_digest})
@@ -119,6 +134,7 @@ class LocalRuntime:
                 FROM steps WHERE run_id=? ORDER BY rowid""", (run_id,)).fetchall()
             return {"run_id": run_id, "state": run["state"], "revision": run["revision"],
                     "plan_digest": run["plan_digest"],
+                    "snapshot": json.loads(run["snapshot"]),
                     "cancel_requested": bool(run["cancel_requested"]),
                     "steps": [dict(row) for row in steps]}
 
@@ -170,6 +186,9 @@ class LocalRuntime:
                     continue
                 policy = self._policy.get(step.capability)
                 require(policy is not None, "Capability is no longer authorized")
+                pinned = json.loads(run["snapshot"])
+                if pinned is not None and pinned["capability_versions"].get(step.capability) != policy.version:
+                    raise DuomitError("POLICY_CHANGED", "Pinned capability version is not installed")
                 needs_approval = step.requires_approval or policy.requires_approval
                 if needs_approval and (row["approval_expires"] or 0) <= self._clock():
                     self._db.execute("UPDATE steps SET state='waiting_approval' WHERE run_id=? AND id=?",

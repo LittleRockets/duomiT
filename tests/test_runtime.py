@@ -218,7 +218,7 @@ class RuntimeTests(unittest.TestCase):
         events = runtime.pending_events(self.context)
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["trace_id"], "legacy")
-        self.assertEqual(runtime._db.execute("PRAGMA user_version").fetchone()[0], 2)
+        self.assertEqual(runtime._db.execute("PRAGMA user_version").fetchone()[0], 3)
 
 
 if __name__ == "__main__":

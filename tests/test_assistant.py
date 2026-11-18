@@ -133,6 +133,27 @@ class CliTests(unittest.TestCase):
             self.assertEqual(json.loads(output.getvalue())["state"], "succeeded")
             post.assert_not_called()
 
+    def test_save_and_load_configuration_without_sending_api_keys_to_disk(self):
+        root = Path(__file__).resolve().parents[1] / "build" / "tmp"
+        root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=root) as directory:
+            path = str(Path(directory) / "settings.sqlite3")
+            output = StringIO()
+            with patch("sys.argv", ["duomit", "--config-database", path, "--save-config",
+                                    "--assistant-provider", "gemini", "--assistant-model-id", "saved-model"]), \
+                    patch("duomit.api_models.HttpsJsonTransport.post") as post, redirect_stdout(output):
+                main()
+            self.assertEqual(json.loads(output.getvalue()), {"saved_revisions": {"assistant": 1}})
+            post.assert_not_called()
+            transport = RecordingTransport(api_response("gemini", "Saved assistant answer"))
+            output = StringIO()
+            with patch.dict(os.environ, {"GEMINI_API_KEY": "fixture-key"}), \
+                    patch("sys.argv", ["duomit", "--config-database", path, "--ask", "hello"]), \
+                    patch("duomit.api_models.HttpsJsonTransport.post", side_effect=transport.post), redirect_stdout(output):
+                main()
+            self.assertEqual(json.loads(output.getvalue())["content"], "Saved assistant answer")
+            self.assertIn("saved-model", transport.calls[0][0])
+
 
 if __name__ == "__main__":
     unittest.main()

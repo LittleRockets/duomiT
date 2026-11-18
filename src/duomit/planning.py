@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 
-from .contracts import BuilderBinding, ModelRequest, Plan, RequestContext, strict_json
+from .contracts import BuilderBinding, ModelRequest, Plan, RequestContext, RunSnapshot, strict_json
 from .errors import require
 from .ports import ModelAccessPort
 from .registry import DomainRegistry
@@ -14,6 +14,13 @@ class ReferencePlanner:
         self._broker = broker
         self._registry = registry
         self._binding = binding
+
+    @property
+    def snapshot(self) -> RunSnapshot:
+        return RunSnapshot(self._binding.binding_id, self._binding.revision,
+                           self._binding.model.content_digest,
+                           tuple((name, self._registry.resolve(name).version)
+                                 for name in self._binding.allowed_capabilities))
 
     def propose(self, context: RequestContext, goal: str) -> Plan:
         request = ModelRequest(goal, self._binding.allowed_capabilities,

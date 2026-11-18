@@ -259,3 +259,60 @@ class AssistantBinding:
                 and 0 < self.timeout_seconds <= 120, "Invalid timeout")
         require(type(self.max_output_tokens) is int and 0 < self.max_output_tokens <= 8192,
                 "Invalid output token budget")
+
+
+@dataclass(frozen=True)
+class ApiSelection:
+    provider: str
+    model: str
+    credential_env: str | None = None
+
+    def __post_init__(self):
+        identifier(self.provider)
+        identifier(self.model)
+        if self.credential_env is not None:
+            require(isinstance(self.credential_env, str) and 0 < len(self.credential_env) <= 128
+                    and self.credential_env[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    and all(char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for char in self.credential_env),
+                    "Invalid credential reference")
+
+
+@dataclass(frozen=True)
+class ModelConfiguration:
+    role: str
+    revision: int
+    selection: ApiSelection
+
+    def __post_init__(self):
+        require(self.role in ("planner", "assistant"), "Invalid model role")
+        require(type(self.revision) is int and self.revision > 0, "Invalid configuration revision")
+        require(isinstance(self.selection, ApiSelection), "Invalid API selection")
+
+
+@dataclass(frozen=True)
+class RunSnapshot:
+    """Immutable provenance references; credentials and prompt text are excluded."""
+
+    binding_id: str
+    binding_revision: int
+    material_digest: str
+    capability_versions: tuple[tuple[str, str], ...]
+
+    def __post_init__(self):
+        identifier(self.binding_id)
+        require(type(self.binding_revision) is int and self.binding_revision > 0, "Invalid binding revision")
+        require(isinstance(self.material_digest, str) and len(self.material_digest) == 64
+                and all(char in "0123456789abcdef" for char in self.material_digest), "Invalid material digest")
+        require(type(self.capability_versions) is tuple and bool(self.capability_versions), "Invalid capability versions")
+        names = []
+        for item in self.capability_versions:
+            require(type(item) is tuple and len(item) == 2, "Invalid capability version entry")
+            identifier(item[0])
+            identifier(item[1])
+            names.append(item[0])
+        require(len(set(names)) == len(names), "Duplicate capability version")
+
+    def to_dict(self):
+        return {"binding_id": self.binding_id, "binding_revision": self.binding_revision,
+                "material_digest": self.material_digest,
+                "capability_versions": dict(self.capability_versions)}
