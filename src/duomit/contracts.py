@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from typing import Any
 
 from .errors import DuomitError, require
@@ -170,3 +171,41 @@ class ModelResponse:
                 "Model content exceeds limit")
         for value in (self.input_tokens, self.output_tokens):
             require(type(value) is int and value >= 0, "Invalid token usage")
+
+
+@dataclass(frozen=True)
+class ModelMaterial:
+    extension_id: str
+    version: str
+    adapter_id: str
+
+    def __post_init__(self):
+        for value in (self.extension_id, self.version, self.adapter_id):
+            identifier(value)
+
+    @property
+    def content_digest(self):
+        return digest({"extension_id": self.extension_id, "version": self.version,
+                       "adapter_id": self.adapter_id})
+
+
+@dataclass(frozen=True)
+class BuilderBinding:
+    tenant_id: str
+    principal_id: str
+    binding_id: str
+    revision: int
+    model: ModelMaterial
+    allowed_capabilities: tuple[str, ...]
+    timeout_seconds: float = 10.0
+    max_output_tokens: int = 1024
+
+    def __post_init__(self):
+        for value in (self.tenant_id, self.principal_id, self.binding_id):
+            identifier(value)
+        require(type(self.revision) is int and self.revision > 0, "Invalid binding revision")
+        require(type(self.timeout_seconds) in (int, float)
+                and math.isfinite(self.timeout_seconds) and 0 < self.timeout_seconds <= 120,
+                "Invalid timeout")
+        require(isinstance(self.model, ModelMaterial), "Invalid model material")
+        ModelRequest("binding-validation", self.allowed_capabilities, self.max_output_tokens)

@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from .contracts import ModelRequest, ModelResponse, Plan, RequestContext
+from .contracts import BuilderBinding, ModelRequest, ModelResponse, Plan, RequestContext
 
 
 class ModelPort(Protocol):
@@ -20,3 +20,8 @@ class StepExecutorPort(Protocol):
                 operation_key: str) -> str:
         """Return a safe artifact reference. Never infer permission from a plan."""
         ...
+
+
+class ModelAccessPort(Protocol):
+    def generate(self, context: RequestContext, binding: BuilderBinding,
+                 request: ModelRequest) -> ModelResponse: ...
