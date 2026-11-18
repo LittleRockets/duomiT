@@ -1,6 +1,10 @@
 <div align="center">
 
-# duomiT
+<p>
+  <img src="./duomit-svg.svg" alt="duomiT 多面体 — AI 智能组织工作流与执行中间件" width="100%" />
+</p>
+
+# <img src="./duomit-icon-svg.svg" alt="" width="36" height="36" /> duomiT
 
 **面向智能组织的 AI 工作流与执行中间件**
 
