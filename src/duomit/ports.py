@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from .contracts import BuilderBinding, ModelRequest, ModelResponse, Plan, RequestContext
+from .contracts import BuilderBinding, ChatRequest, ModelRequest, ModelResponse, Plan, RequestContext
 
 
 class ModelPort(Protocol):
@@ -25,3 +25,7 @@ class StepExecutorPort(Protocol):
 class ModelAccessPort(Protocol):
     def generate(self, context: RequestContext, binding: BuilderBinding,
                  request: ModelRequest) -> ModelResponse: ...
+
+
+class ChatPort(Protocol):
+    def complete(self, request: ChatRequest, *, timeout_seconds: float) -> ModelResponse: ...

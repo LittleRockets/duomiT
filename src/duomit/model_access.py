@@ -49,10 +49,15 @@ class ModelBroker:
         adapter = self._adapters.get(material.adapter_id)
         if adapter is None:
             raise DuomitError("MODEL_UNAVAILABLE", "Model adapter is not installed")
+        if getattr(adapter, "owner", (context.tenant_id, context.principal_id)) != (
+                context.tenant_id, context.principal_id):
+            raise DuomitError("NOT_FOUND", "Model adapter is not available")
         try:
             response = adapter.generate(request, timeout_seconds=binding.timeout_seconds)
         except TimeoutError:
             raise DuomitError("MODEL_TIMEOUT", "Model request timed out", True) from None
+        except DuomitError:
+            raise
         except Exception:
             # Never expose provider exception messages, credentials or prompt contents.
             raise DuomitError("MODEL_FAILED", "Model request failed") from None

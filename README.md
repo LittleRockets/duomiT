@@ -139,7 +139,24 @@ python -m duomit --database demo.sqlite3 --approve
 
 SQLite 参考运行时支持持久化状态、幂等创建、审批等待、取消、事务事件记录和中断后的人工核对。上面的数据库演示首次停在审批处，第二次显式批准后完成模拟执行；它不会调用真实工具或生成真实报告。更换计划时请使用新的演示数据库。
 
-当前登记与鉴权是可信本地程序内的参考实现，不是对外认证服务。模型适配器须自行落实超时；尚无真实 LLM、镜像租约服务、远程工具或生产沙盒。恢复操作仅供确认旧 worker 已停止后的可信本地调用，尚未提供生产租约、自动故障转移、完整配额或审批服务。`plan.schema.json` 提供机器可读结构约束；依赖图和权限等语义还需应用层校验。
+当前登记与鉴权是可信本地程序内的参考实现，不是对外认证服务。已提供四家服务的 API 适配器及 socket 超时控制；尚未使用真实密钥联调，也未实现镜像租约服务、远程工具或生产沙盒。恢复操作仅供确认旧 worker 已停止后的可信本地调用，尚未提供生产租约、自动故障转移、完整配额或审批服务。`plan.schema.json` 提供机器可读结构约束；依赖图和权限等语义还需应用层校验。
+
+## LLM API 接入
+
+实际 LLM 统一通过 API 接入，不加载本地模型权重。原有 sequential / independent 是离线测试替身。
+
+| 服务 | 接口协议 | 密钥环境变量 |
+| --- | --- | --- |
+| GPT / OpenAI | Responses | `OPENAI_API_KEY` |
+| Gemini | generateContent | `GEMINI_API_KEY` |
+| DeepSeek | Chat Completions | `DEEPSEEK_API_KEY` |
+| Grok / xAI | Responses | `XAI_API_KEY` |
+
+具体模型 ID 由用户配置，须与账号可访问模型及对应协议匹配。适配器统一返回文本和 token 用量，不执行供应商返回的工具调用。请求不自动重试、不跨供应商降级；缺少密钥时在发送前停止。凭据只通过请求头发送，Responses 请求显式关闭会话存储；数据保留仍以服务商政策为准。
+
+当前仅支持官方 HTTPS 端点、非流式纯文本；不自动使用系统代理，不支持自定义中转地址。超时针对 socket 操作，尚非包含 DNS 的严格整体截止时间。所有验证使用模拟 API，没有发起真实付费调用。
+
+适配协议依据 [OpenAI](https://developers.openai.com/api/reference/resources/responses/methods/create)、[Gemini](https://ai.google.dev/api/generate-content)、[DeepSeek](https://api-docs.deepseek.com/api/create-chat-completion/)、[xAI](https://docs.x.ai/developers/rest-api-reference/inference/responses) 官方文档实现。
 
 ## 许可证
 

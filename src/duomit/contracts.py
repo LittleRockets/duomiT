@@ -209,3 +209,32 @@ class BuilderBinding:
                 "Invalid timeout")
         require(isinstance(self.model, ModelMaterial), "Invalid model material")
         ModelRequest("binding-validation", self.allowed_capabilities, self.max_output_tokens)
+
+
+@dataclass(frozen=True)
+class ChatMessage:
+    role: str
+    content: str
+
+    def __post_init__(self):
+        require(self.role in ("user", "assistant"), "Invalid conversation role")
+        require(isinstance(self.content, str) and 0 < len(self.content.strip()) <= 16384,
+                "Invalid conversation content")
+
+
+@dataclass(frozen=True)
+class ChatRequest:
+    messages: tuple[ChatMessage, ...]
+    instructions: str = "Answer the user. Do not claim to execute tools."
+    max_output_tokens: int = 1024
+
+    def __post_init__(self):
+        require(type(self.messages) is tuple and 0 < len(self.messages) <= 32
+                and all(isinstance(item, ChatMessage) for item in self.messages),
+                "Invalid conversation messages")
+        require(isinstance(self.instructions, str) and 0 < len(self.instructions) <= 32768,
+                "Invalid model instructions")
+        require(sum(len(item.content) for item in self.messages) <= 65536,
+                "Conversation exceeds size limit")
+        require(type(self.max_output_tokens) is int and 0 < self.max_output_tokens <= 8192,
+                "Invalid output token budget")
