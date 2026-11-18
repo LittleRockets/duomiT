@@ -1,6 +1,7 @@
 include LICENSE README.md pyproject.toml
 include duomit-svg.svg duomit-icon-svg.svg
-recursive-include src/duomit *.py *.schema.json
+recursive-include assets *.jpg
+recursive-include src/duomit *.py *.schema.json *.html *.svg
 recursive-include tests *.py
 prune docs
 prune build

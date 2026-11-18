@@ -133,6 +133,7 @@ class LocalRuntime:
             steps = self._db.execute("""SELECT id,state,operation_key,artifact_ref
                 FROM steps WHERE run_id=? ORDER BY rowid""", (run_id,)).fetchall()
             return {"run_id": run_id, "state": run["state"], "revision": run["revision"],
+                    "definition": json.loads(run["plan"]),
                     "plan_digest": run["plan_digest"],
                     "snapshot": json.loads(run["snapshot"]),
                     "cancel_requested": bool(run["cancel_requested"]),

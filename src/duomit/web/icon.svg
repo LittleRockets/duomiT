@@ -1,0 +1,67 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgSquare" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+    <linearGradient id="dGlass" x1="56" y1="48" x2="180" y2="208" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="#6366F1" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#4338CA" stop-opacity="0.38" />
+    </linearGradient>
+    <linearGradient id="tArrow" x1="125" y1="64" x2="225" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="55%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+    <radialGradient id="cNode" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#BAE6FD" />
+      <stop offset="55%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </radialGradient>
+    <radialGradient id="iNode" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#C7D2FE" />
+      <stop offset="55%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </radialGradient>
+    <radialGradient id="eNode" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#A7F3D0" />
+      <stop offset="55%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
+    </radialGradient>
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#bgSquare)" stroke="#38BDF8" stroke-width="2" stroke-opacity="0.35" />
+
+  <!-- D 玻璃轨道 -->
+  <path d="M68 54 H106 C146 54 176 85 176 128 C176 171 146 202 106 202 H68 C61 202 56 197 56 190 V66 C56 59 61 54 68 54 Z" fill="none" stroke="url(#dGlass)" stroke-width="26" stroke-linejoin="round" />
+  <path d="M68 54 H106 C146 54 176 85 176 128 C176 171 146 202 106 202 H68 C61 202 56 197 56 190 V66 C56 59 61 54 68 54 Z" fill="none" stroke="#7DD3FC" stroke-width="1.5" stroke-opacity="0.5" stroke-linejoin="round" />
+
+  <!-- T 与向前箭头 -->
+  <g filter="url(#glow)">
+    <rect x="130" y="64" width="68" height="16" rx="8" fill="url(#tArrow)" fill-opacity="0.38" stroke="#5EEAD4" stroke-width="1.8" />
+    <path d="M164 80 V120" stroke="url(#tArrow)" stroke-width="15" stroke-linecap="round" opacity="0.55" />
+    <path d="M165 130 H195 V112 L226 138 L195 164 V146 H165 Z" fill="url(#tArrow)" stroke="#A7F3D0" stroke-width="1.5" stroke-linejoin="round" />
+  </g>
+
+  <!-- 拓扑连线 -->
+  <g filter="url(#glow)">
+    <line x1="68" y1="68" x2="68" y2="188" stroke="#38BDF8" stroke-width="4" stroke-linecap="round" />
+    <line x1="68" y1="68" x2="120" y2="138" stroke="#60A5FA" stroke-width="4" stroke-linecap="round" />
+    <line x1="68" y1="188" x2="120" y2="138" stroke="#818CF8" stroke-width="4" stroke-linecap="round" />
+    <line x1="120" y1="138" x2="165" y2="138" stroke="#34D399" stroke-width="4" stroke-linecap="round" />
+  </g>
+
+  <!-- 发光节点 -->
+  <circle cx="68" cy="68" r="13" fill="url(#cNode)" stroke="#E0F2FE" stroke-width="1.5" />
+  <circle cx="68" cy="188" r="13" fill="url(#cNode)" stroke="#E0F2FE" stroke-width="1.5" />
+  <circle cx="120" cy="138" r="13" fill="url(#iNode)" stroke="#E0E7FF" stroke-width="1.5" />
+  <circle cx="165" cy="138" r="13" fill="url(#eNode)" stroke="#D1FAE5" stroke-width="1.5" />
+</svg>

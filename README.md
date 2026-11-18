@@ -1,134 +1,166 @@
 <div align="center">
 
+<img src="./duomit-svg.svg" alt="duomiT 多面体 — 智能组织工作流与执行中间件" width="100%" />
+
+<h3>把用户目标连接到可验证、可恢复的执行过程。</h3>
+
 <p>
-  <img src="./duomit-svg.svg" alt="duomiT 多面体 — AI 智能组织工作流与执行中间件" width="100%" />
+  <a href="#快速开始"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-087E79" alt="Apache License 2.0" /></a>
+  <a href="#当前状态"><img src="https://img.shields.io/badge/Stage-Early%20Development-D99A2B" alt="Early Development" /></a>
 </p>
 
-# <img src="./duomit-icon-svg.svg" alt="" width="36" height="36" /> duomiT
+**[快速开始](#快速开始) · [交互测试](#交互测试) · [模型接入](#模型接入) · [功能特性](#功能特性) · [开发验证](#开发验证)**
 
-**面向智能组织的 AI 工作流与执行中间件**
-
-连接用户目标、模型推理与可追溯的执行过程。
-
-[功能特性](#功能特性) · [快速开始](#快速开始) · [模型接入](#模型接入) · [开发验证](#开发验证) · [许可证](#许可证)
-
-Python 3.11+ · Apache License 2.0 · Early Development
+[问题反馈](https://github.com/LittleRockets/duomiT/issues) · [源码](https://github.com/LittleRockets/duomiT) · [许可证](./LICENSE)
 
 </div>
 
 ---
 
-## 项目概述
+**duomiT** 是面向智能组织的 AI 工作流与执行中间件。Builder 将目标转换为结构化计划，运行时管理执行、审批与恢复，让每次操作具有清楚的权限、状态和证据。
 
-duomiT 围绕任务规划、独立工作流与人机协作构建智能组织的执行基础。Builder 将用户目标转换为结构化计划，运行时维护执行状态、审批记录与恢复过程，使模型推理与实际操作之间具备明确的责任边界。
+规划模型与助理模型独立配置，通过 API 接入 GPT、Gemini、DeepSeek、Grok。模型提供建议，系统校验计划；操作授权与执行状态由运行时管理。
 
-系统采用模块化接口设计。规划模型与助理模型独立配置，模型输出经过契约与能力校验后进入工作流；模型本身不授予权限，也不直接改变执行状态。
-
-> 当前版本处于早期开发阶段，提供 API 适配器与本地工作流验证环境。真实模型服务尚未完成联调，工具执行仍使用模拟执行器。
-
-## 功能特性
-
-| 功能 | 当前支持 |
-| --- | --- |
-| 结构化规划 | JSON Schema、依赖图校验、循环依赖检测、能力范围校验 |
-| LLM API 适配 | GPT / OpenAI、Gemini、DeepSeek、Grok / xAI |
-| 独立助理接口 | 独立模型绑定、显式会话历史、文本建议与复核 |
-| 节点协作 | 节点版本注册、受控子图、双向消息、独立内存工作区 |
-| 拓展材料管理 | 不可变版本、内容摘要校验、镜像租约、续期、幂等释放与过期回收 |
-| 模型配置 | 按用户与角色持久化、历史版本、并发更新校验、停用控制 |
-| 持久化工作流 | SQLite 状态存储、幂等创建、模型与能力版本记录、执行恢复 |
-| 人工审批 | 操作绑定、版本校验、有效期校验 |
-| 取消与异常核对 | 停止后续步骤，对结果不确定的操作保留核对状态 |
-| 事件记录 | 状态与事件事务写入、事件重放与投递确认 |
-| 访问边界 | 本地访问令牌验证、用户与租户归属校验 |
-
-## 设计原则
-
-- **接口驱动**：模型、规划策略与执行器通过独立契约连接。
-- **上下文隔离**：用户绑定、任务状态与会话历史具有明确归属。
-- **权限受控**：计划生成与操作授权分离，强制审批不能被模型移除。
-- **执行可恢复**：先记录状态再执行操作，未知结果须核对后处理。
-- **证据可追溯**：运行、步骤、审批与事件通过标识和版本关联。
+<table>
+<tr>
+<td width="33%" valign="top"><h3>可验证的规划</h3>结构化计划、依赖校验与能力约束，让模型输出进入明确的执行契约。</td>
+<td width="33%" valign="top"><h3>可恢复的执行</h3>持久化状态、人工审批与异常核对，保留操作上下文，避免盲目重试。</td>
+<td width="33%" valign="top"><h3>受控的协作</h3>节点按授权连接交换消息，通过租约使用材料，保持运行和写入边界。</td>
+</tr>
+</table>
 
 ## 快速开始
 
-需要 Python 3.11 或更高版本，当前运行时无第三方依赖。以下示例使用 PowerShell。
+需要 **Python 3.11+**，运行时无第三方依赖。以下为 PowerShell 示例：
 
 ```powershell
 git clone https://github.com/LittleRockets/duomiT.git
 cd duomiT
 $env:PYTHONPATH = "src"
+python -m duomit.demo_server --open
 ```
 
-### 生成离线示例计划
+浏览器打开 **[本地测试台](http://127.0.0.1:8765)**。默认离线运行，不需要密钥，不产生模型 API 费用。
+
+<details>
+<summary><strong>安装到 Python 环境</strong></summary>
 
 ```powershell
+python -m pip install .
+python -m duomit.demo_server --open
+```
+
+当前从仓库源码安装，未提供 PyPI 安装入口。
+
+</details>
+
+## 交互测试
+
+<p align="center">
+  <img src="./assets/testbench.jpg" alt="duomiT 本地测试台：任务输入、步骤状态、人工审批和执行事件" width="100%" />
+</p>
+
+<table>
+<tr><th align="left">测试入口</th><th align="left">可以观察什么</th></tr>
+<tr><td><strong>工作流验证</strong></td><td>生成计划，开始执行，批准或取消运行；模拟回执丢失后检查核对流程。</td></tr>
+<tr><td><strong>节点与镜像</strong></td><td>双向消息、共享只读材料、节点写入隔离，以及结束后的租约释放和缓存回收。</td></tr>
+<tr><td><strong>助理 API</strong></td><td>使用独立模型梳理或复核输入；助理不能批准操作或启动工作流。</td></tr>
+</table>
+
+> **验证范围**：离线规划使用固定两步模板，不理解目标语义；工具执行始终为模拟。评估规划质量时可显式选择真实 API。真实文件处理、报告生成和外部工具执行尚未接入。
+
+真实 API 模式使用**启动服务进程时**的密钥环境变量。设置对应变量后重新启动测试台，在页面选择服务商和模型 ID；请求由用户点击触发，可能产生费用。测试台仅监听 `127.0.0.1`，用于本地开发验证。
+
+### 命令行示例
+
+```powershell
+# 离线计划
 python -m duomit --model sequential
-python -m duomit --model independent
-```
 
-这两个模型为确定性的测试替身，不加载模型权重，不产生 API 费用。
-
-### 运行持久化示例
-
-```powershell
+# 持久化运行；随后批准并继续
 python -m duomit --database demo.sqlite3
 python -m duomit --database demo.sqlite3 --resume --approve
+
+# 固定双节点与镜像生命周期
+python -m duomit.node_demo --database desktop-demo.sqlite3
 ```
 
-首次执行在人工审批步骤暂停，第二次显式批准后继续。恢复复用已保存的计划，不再次调用规划模型。示例使用模拟执行器，不调用真实工具或生成实际报告；创建不同计划时应使用新的数据库。
-
-### 本地身份验证
-
-本地管理端可通过 `LocalIdentityStore.issue()` 签发有期限的访问令牌，并将令牌设置到当前会话的 `DUOMIT_ACCESS_TOKEN` 环境变量。命令行根据令牌记录派生用户与租户身份：
-
-```powershell
-python -m duomit --identity-database identities.sqlite3 --config-database settings.sqlite3 --ask "梳理这项需求"
-```
-
-此示例要求该用户已保存助理模型配置。身份数据库仅保存令牌摘要，支持过期与撤销；签发和撤销接口供可信本地管理端调用。未指定身份数据库时使用固定演示身份。
+恢复使用已保存的计划，不再次请求规划模型。`--resume` 只恢复现有运行；创建不同计划请使用新的演示数据库。
 
 ## 模型接入
 
-真实 LLM 统一通过 API 接入，具体模型 ID 按账号可用模型配置。
+真实 LLM **统一通过 API 接入**，不加载本地模型权重。具体模型 ID 按账号权限和对应协议配置。
 
 | 服务 | 协议 | 默认密钥环境变量 |
-| --- | --- | --- |
-| GPT / OpenAI | Responses | `OPENAI_API_KEY` |
-| Gemini | generateContent | `GEMINI_API_KEY` |
-| DeepSeek | Chat Completions | `DEEPSEEK_API_KEY` |
-| Grok / xAI | Responses | `XAI_API_KEY` |
+| :--- | :--- | :--- |
+| **GPT / OpenAI** | Responses | `OPENAI_API_KEY` |
+| **Gemini** | generateContent | `GEMINI_API_KEY` |
+| **DeepSeek** | Chat Completions | `DEEPSEEK_API_KEY` |
+| **Grok / xAI** | Responses | `XAI_API_KEY` |
 
-协议参考：[OpenAI](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Gemini](https://ai.google.dev/api/generate-content) · [DeepSeek](https://api-docs.deepseek.com/api/create-chat-completion/) · [xAI](https://docs.x.ai/developers/rest-api-reference/inference/responses)。
+### 规划与助理
 
-### 规划模型
-
-在当前会话设置对应密钥环境变量后执行：
+在当前会话设置相应密钥环境变量后：
 
 ```powershell
+# 规划模型：返回经过校验的结构化计划
 python -m duomit --provider openai --model-id "<模型 ID>" --goal "生成数据报告计划"
+
+# 助理模型：独立的文本建议入口
+python -m duomit --assistant-provider gemini --assistant-model-id "<模型 ID>" --ask "检查这项需求的验收条件"
 ```
 
-生成的计划仍需通过结构、依赖、能力与审批校验。使用 `--database` 可保存模拟运行状态。
+两个角色均支持四家服务，可以分别选择模型和密钥。未配置的角色不自动回退，会话和目标也不会隐式共享。`--api-key-env` 与 `--assistant-api-key-env` 接受环境变量**名称**，不接受密钥值。
 
-### 助理模型
-
-```powershell
-python -m duomit --assistant-provider gemini --assistant-model-id "<模型 ID>" --ask "梳理这项需求的验收条件"
-```
-
-规划与助理角色均支持上述四家服务，可分别选择服务商、模型和密钥。未配置的角色不会自动借用另一角色的模型或上下文。助理返回文本建议，不批准操作或启动工作流。
-
-### 保存模型配置
+<details>
+<summary><strong>保存用户模型配置</strong></summary>
 
 ```powershell
 python -m duomit --config-database settings.sqlite3 --save-config --assistant-provider gemini --assistant-model-id "<模型 ID>"
 python -m duomit --config-database settings.sqlite3 --ask "梳理这项需求"
 ```
 
-保存操作不调用模型。配置数据库记录模型选择和密钥环境变量名称，不保存密钥值。规划模型同样可通过 `--save-config --provider ... --model-id ...` 保存；后续读取配置时无需重复传入模型参数。
+保存操作不请求模型，数据库仅记录模型选择与密钥引用。配置按用户和角色版本化，支持并发更新校验与停用控制。
 
-使用 `--api-key-env` 与 `--assistant-api-key-env` 可分别指定密钥环境变量名称。密钥值不应写入命令参数、配置文件或源代码。API 调用可能产生费用，用量与数据保留规则以对应服务商为准。
+</details>
+
+<details>
+<summary><strong>本地身份验证</strong></summary>
+
+可信本地管理端可通过 `LocalIdentityStore.issue()` 签发有期限的访问令牌。设置 `DUOMIT_ACCESS_TOKEN` 后，命令行从令牌记录派生用户和租户身份：
+
+```powershell
+python -m duomit --identity-database identities.sqlite3 --config-database settings.sqlite3 --ask "梳理这项需求"
+```
+
+此示例要求该用户已保存助理模型配置。身份数据库仅保存令牌摘要，支持过期与撤销。未指定身份数据库时，命令行使用固定演示身份；浏览器测试台使用独立的本地演示身份。
+
+</details>
+
+协议参考：[OpenAI](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Gemini](https://ai.google.dev/api/generate-content) · [DeepSeek](https://api-docs.deepseek.com/api/create-chat-completion/) · [xAI](https://docs.x.ai/developers/rest-api-reference/inference/responses)。
+
+## 功能特性
+
+| 组件能力 | 已实现 |
+| :--- | :--- |
+| **计划契约** | JSON Schema、依赖和循环检测、能力范围校验、强制审批保留 |
+| **模型与助理** | 四家 API 适配、独立角色绑定、显式会话历史、用量返回 |
+| **运行时** | SQLite 持久化、幂等创建、模型与能力版本记录、取消、异常核对 |
+| **审批与身份** | 操作摘要和版本绑定、审批有效期、本地访问令牌、用户归属校验 |
+| **拓展材料** | 不可变版本、摘要校验、镜像租约、续期、释放、过期回收、版本撤回 |
+| **节点参考环境** | 版本注册、受控子图、双向消息、消息预算、独立内存工作区、排空 |
+| **执行证据** | 状态与事件事务写入、事件重放、投递确认、生命周期记录 |
+
+## 当前状态
+
+项目处于早期开发阶段，当前版本用于验证接口、运行机制和交互边界。
+
+- API 适配已通过模拟协议测试，尚未完成真实账号联调。仅支持官方 HTTPS 端点和非流式文本。
+- 请求不自动重试、不自动切换服务商，也不自动使用系统代理；socket 超时尚不等于覆盖 DNS 的整体截止时间。
+- 节点使用单线程进程内队列和内存工作区；材料使用不可变字节缓存，尚无文件系统挂载、操作系统级隔离或分布式节点认证。
+- 工作流、节点和模型租约链仍有独立参考路径，尚未构成完整的生产执行链路。
+- 中断恢复与核对由可信操作方处理；当前未提供生产认证服务、分布式故障转移或任意代码运行环境。
 
 ## 开发验证
 
@@ -138,34 +170,12 @@ python -m unittest discover -s tests -v
 python -m duomit --help
 ```
 
-测试覆盖契约校验、API 协议映射、角色与用户隔离、审批有效期、幂等行为、中断核对、并发领取、数据库迁移及事务事件一致性。模型请求通过模拟 API 验证，不依赖真实服务密钥。
+测试覆盖契约、身份、API 映射、审批、恢复、并发租约、节点访问边界、HTTP 测试入口及打包资源。模型协议测试不依赖真实密钥。
 
-## 拓展材料管理
-
-`SqliteDesktop` 提供本地材料仓库与镜像缓存，按用户隔离发布和租约。获取时固定版本与内容摘要，读取时校验租约有效期、版本号及运行和节点归属；撤回版本后阻止继续读取或续期。缓存按有效租约回收，并保留等待期与生命周期事件。
-
-当前接口使用不可变字节副本，不提供文件系统挂载或操作系统级隔离。Desktop 仅存储和分发材料，不执行拓展。模型 API 接入暂仍使用独立的参考材料登记链，尚未接入该租约服务。
-
-### 节点与租约示例
-
-```powershell
-python -m duomit.node_demo --database desktop-demo.sqlite3
-```
-
-示例激活两个固定节点，通过授权连接交换请求和回复，分别读取同一份只读材料，并验证工作区写入互不影响。结束时释放租约并回收缓存，重复运行不会遗留有效租约。全程离线，不调用 LLM 或外部工具。
-
-节点只能请求其描述中声明的拓展版本；跨子图发送、未授权连接、未签发句柄和超出消息预算的请求会被拒绝。节点排空会阻止新激活，已激活的节点可继续完成当前任务。
-
-此参考环境使用单线程进程内消息队列和内存工作区，尚未与持久化工作流调度器合并，也不提供跨进程节点认证、任意代码运行或文件系统沙盒。
-
-## 当前边界
-
-- 命令行支持固定演示身份或本地访问令牌，尚未提供生产认证服务、操作系统级沙盒或真实工具执行环境。
-- API 接入支持官方 HTTPS 端点和非流式文本，不自动使用系统代理或自定义中转服务。
-- 请求失败不自动重试，也不自动切换服务商；凭据仅通过请求头发送。
-- 超时针对阻塞 socket 操作，尚不提供覆盖 DNS 解析的严格整体截止时间。
-- 中断核对需由可信操作方确认旧 worker 已停止；当前未提供分布式故障转移。
+欢迎通过 [Issues](https://github.com/LittleRockets/duomiT/issues) 提交复现步骤、预期行为与实际结果，通过 Pull Request 贡献接口、适配器和验证案例。
 
 ## 许可证
 
-本项目采用 [Apache License 2.0](LICENSE)。
+本项目采用 [Apache License 2.0](./LICENSE)。
+
+<p align="center"><img src="./duomit-icon-svg.svg" alt="duomiT" width="40" /><br/><sub>duomiT · 从目标到执行</sub></p>
