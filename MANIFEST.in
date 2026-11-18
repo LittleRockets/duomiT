@@ -1,0 +1,7 @@
+include LICENSE README.md pyproject.toml
+recursive-include src/duomit *.py *.schema.json
+recursive-include tests *.py
+prune docs
+prune build
+prune dist
+global-exclude __pycache__ *.py[cod] *.sqlite3 .env .env.*
