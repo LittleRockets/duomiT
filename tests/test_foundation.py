@@ -24,7 +24,7 @@ class FoundationTests(unittest.TestCase):
                               "2026-11-18T00:00:00Z", PinnedReference("payload", "p", "1", "b" * 64), "trace")
         self.assertEqual(event.event_type, "task.created")
         with self.assertRaises(DuomitError):
-            EventEnvelope("event", "unknown", "1.0", "org", "task", 1,
+            EventEnvelope("event", "Unknown.Event", "1.0", "org", "task", 1,
                           "2026-11-18T00:00:00Z", event.payload_ref, "trace")
 
     def test_timestamp_requires_utc(self):

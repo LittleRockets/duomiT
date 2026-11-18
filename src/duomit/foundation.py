@@ -15,10 +15,20 @@ from .errors import DuomitError, require
 CONFIG_SCOPES = (
     "organization_default", "project", "sandbox", "task",
 )
-EVENT_TYPES = frozenset({
-    "sandbox.provisioned", "task.created", "proposal.created", "run.created",
-    "step.started", "step.completed", "configuration.resolved",
-})
+
+
+def event_type(value: Any) -> str:
+    """Validate an extensible dotted event name without a core allow-list.
+
+    Concrete event availability belongs to a versioned schema registry; this
+    public foundation layer only prevents malformed or ambiguous names.
+    """
+    require(isinstance(value, str) and 3 <= len(value) <= 128, "Invalid event type")
+    segments = value.split(".")
+    require(len(segments) >= 2 and all(segment and segment.replace("_", "").isalnum()
+            and segment.isascii() and segment == segment.lower() for segment in segments),
+            "Invalid event type")
+    return value
 
 
 def utc_timestamp(value: str) -> str:
@@ -97,7 +107,7 @@ class EventEnvelope:
 
     def __post_init__(self):
         identifier(self.event_id)
-        require(self.event_type in EVENT_TYPES, "Unsupported event type")
+        event_type(self.event_type)
         identifier(self.schema_version)
         for value in (self.organization_id, self.aggregate_id, self.trace_id):
             identifier(value)
