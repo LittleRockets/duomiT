@@ -348,3 +348,33 @@ class MirrorLease:
     expires_at: float
     fence: int
     state: str
+
+
+@dataclass(frozen=True)
+class NodeDescriptor:
+    node_id: str
+    domain_id: str
+    version: str
+    required_extensions: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self):
+        for value in (self.node_id, self.domain_id, self.version):
+            identifier(value)
+        require(type(self.required_extensions) is tuple and len(self.required_extensions) <= 32,
+                "Invalid extension requirements")
+        for item in self.required_extensions:
+            require(type(item) is tuple and len(item) == 2, "Invalid extension requirement")
+            identifier(item[0])
+            identifier(item[1])
+        require(len(set(self.required_extensions)) == len(self.required_extensions),
+                "Duplicate extension requirement")
+
+
+@dataclass(frozen=True)
+class NodeMessage:
+    graph_id: str
+    run_id: str
+    from_node: str
+    to_node: str
+    sequence: int
+    text: str

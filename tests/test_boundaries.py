@@ -15,6 +15,7 @@ class BoundaryTests(unittest.TestCase):
             "registry": {"dataclasses", "contracts", "errors"},
             "assistant": {"contracts", "ports"},
             "desktop": {"contextlib", "hashlib", "math", "pathlib", "sqlite3", "time", "uuid", "contracts", "errors"},
+            "nodes": {"collections", "uuid", "contracts", "errors", "ports"},
         }
         for module, imports in approved.items():
             tree = ast.parse((root / f"{module}.py").read_text(encoding="utf-8"))
