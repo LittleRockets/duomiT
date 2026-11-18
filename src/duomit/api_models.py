@@ -125,6 +125,8 @@ class ApiModel:
                                          request.max_output_tokens), timeout_seconds=timeout_seconds)
 
     def complete(self, request: ChatRequest, *, timeout_seconds: float) -> ModelResponse:
+        require(type(timeout_seconds) in (int, float) and math.isfinite(timeout_seconds)
+                and 0 < timeout_seconds <= 120, "Invalid API timeout")
         profile = self._profile
         key = os.environ.get(profile.credential_env)
         if not key:

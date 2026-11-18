@@ -4,9 +4,10 @@ This is a trusted, in-process fixture, not the S2 Desktop mirror lease service.
 Only deployment code installs model adapters. Material never includes credentials.
 """
 
-from .contracts import (BuilderBinding, ModelMaterial, ModelRequest, ModelResponse, RequestContext)
+from .contracts import (AssistantBinding, BuilderBinding, ChatRequest, ModelMaterial,
+                        ModelRequest, ModelResponse, RequestContext)
 from .errors import DuomitError, require
-from .ports import ModelPort
+from .ports import ChatPort, ModelPort
 
 
 class ReferenceDesktop:
@@ -33,17 +34,30 @@ class ReferenceDesktop:
 class ModelBroker:
     """Runs adapters after checking owner and Desktop material; no provider selection in core."""
 
-    def __init__(self, desktop: ReferenceDesktop, adapters: dict[str, ModelPort]):
+    def __init__(self, desktop: ReferenceDesktop, adapters: dict[str, ModelPort | ChatPort]):
         self._desktop = desktop
         self._adapters = dict(adapters)
 
     def generate(self, context: RequestContext, binding: BuilderBinding,
                  request: ModelRequest) -> ModelResponse:
-        if (context.tenant_id, context.principal_id) != (binding.tenant_id, binding.principal_id):
-            raise DuomitError("NOT_FOUND", "Builder binding is not available")
+        require(type(binding) is BuilderBinding, "Expected planner binding")
         require(set(request.allowed_capabilities) <= set(binding.allowed_capabilities),
                 "Request exceeds binding capabilities")
-        require(request.max_output_tokens <= binding.max_output_tokens,
+        adapter = self._resolve(context, binding, request.max_output_tokens)
+        return self._invoke(adapter.generate, request, binding)
+
+    def complete(self, context: RequestContext, binding: AssistantBinding,
+                 request: ChatRequest) -> ModelResponse:
+        require(type(binding) is AssistantBinding, "Expected assistant binding")
+        adapter = self._resolve(context, binding, request.max_output_tokens)
+        if not callable(getattr(adapter, "complete", None)):
+            raise DuomitError("MODEL_UNAVAILABLE", "Assistant API is not available")
+        return self._invoke(adapter.complete, request, binding)
+
+    def _resolve(self, context, binding, max_output_tokens):
+        if (context.tenant_id, context.principal_id) != (binding.tenant_id, binding.principal_id):
+            raise DuomitError("NOT_FOUND", "Builder binding is not available")
+        require(max_output_tokens <= binding.max_output_tokens,
                 "Request exceeds binding token budget")
         material = self._desktop.acquire(context, binding.model)
         adapter = self._adapters.get(material.adapter_id)
@@ -52,8 +66,11 @@ class ModelBroker:
         if getattr(adapter, "owner", (context.tenant_id, context.principal_id)) != (
                 context.tenant_id, context.principal_id):
             raise DuomitError("NOT_FOUND", "Model adapter is not available")
+        return adapter
+
+    def _invoke(self, method, request, binding):
         try:
-            response = adapter.generate(request, timeout_seconds=binding.timeout_seconds)
+            response = method(request, timeout_seconds=binding.timeout_seconds)
         except TimeoutError:
             raise DuomitError("MODEL_TIMEOUT", "Model request timed out", True) from None
         except DuomitError:

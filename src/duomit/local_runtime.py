@@ -122,6 +122,12 @@ class LocalRuntime:
                     "cancel_requested": bool(run["cancel_requested"]),
                     "steps": [dict(row) for row in steps]}
 
+    def find_run(self, context: RequestContext, idempotency_key: str) -> str | None:
+        identifier(idempotency_key)
+        row = self._db.execute("SELECT id FROM runs WHERE tenant=? AND owner=? AND idem=?",
+                               (context.tenant_id, context.principal_id, idempotency_key)).fetchone()
+        return row["id"] if row else None
+
     def approve(self, context, run_id, step_id, operation_key, expected_revision, *, valid_seconds=60):
         require(type(valid_seconds) in (int, float) and 0 < valid_seconds <= 3600,
                 "Invalid approval validity")

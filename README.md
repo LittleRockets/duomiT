@@ -10,7 +10,7 @@
 
 </div>
 
-> **项目状态：早期开发。** 已提供标准契约、离线参考 Builder 和持久化工作流实验，尚无真实模型接入、生产执行环境或稳定 API。下述产品能力仍为设计目标。
+> **项目状态：早期开发。** 已提供标准契约、API 模型适配、独立助理接口和持久化工作流实验，尚未完成真实服务联调，也无生产执行环境或稳定 API。下述产品能力仍为设计目标。
 
 ## 项目愿景
 
@@ -132,7 +132,7 @@ python -m unittest discover -s tests -v
 python -m duomit --model sequential
 python -m duomit --model independent
 python -m duomit --database demo.sqlite3
-python -m duomit --database demo.sqlite3 --approve
+python -m duomit --database demo.sqlite3 --resume --approve
 ```
 
 已实现结构化计划契约、依赖图校验、模型请求与响应契约，以及独立的模型端口和规划端口。离线参考 Builder 可更换两个模拟模型；用户绑定、拓展材料登记和能力校验在调用链中生效，强制审批不能被模型输出移除。
@@ -151,6 +151,20 @@ SQLite 参考运行时支持持久化状态、幂等创建、审批等待、取�
 | Gemini | generateContent | `GEMINI_API_KEY` |
 | DeepSeek | Chat Completions | `DEEPSEEK_API_KEY` |
 | Grok / xAI | Responses | `XAI_API_KEY` |
+
+规划模型与助理模型独立绑定，可分别选择上述任一服务商。未配置的角色保持不可用，不自动复用另一角色的模型或上下文。助理只能返回建议文本，不能批准操作或启动工作流；多轮历史由调用方显式传入，当前没有隐藏的共享会话。
+
+在当前 PowerShell 会话配置相应密钥环境变量后，可以使用以下命令。模型 ID 从你账号的可用列表填写；执行这些命令会请求对应服务，可能产生费用。
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m duomit --provider openai --model-id "<你的 GPT 模型 ID>" --goal "生成数据报告计划"
+python -m duomit --assistant-provider gemini --assistant-model-id "<你的 Gemini 模型 ID>" --ask "帮我梳理这个需求"
+```
+
+DeepSeek 使用 `--provider deepseek` 或 `--assistant-provider deepseek`，Grok 使用 `grok`；两个角色均支持四家服务。使用 `--api-key-env` 和 `--assistant-api-key-env` 可分别指定密钥环境变量名称，勿将密钥本身作为参数。
+
+API 生成计划后仍经过依赖图、能力与审批校验。要持久化模拟运行，首次加入 `--database demo.sqlite3`；恢复时使用 `--database demo.sqlite3 --resume`，审批继续使用 `--resume --approve`，两者复用保存的计划，不再次调用规划 API。当前执行器仍为模拟执行器。
 
 具体模型 ID 由用户配置，须与账号可访问模型及对应协议匹配。适配器统一返回文本和 token 用量，不执行供应商返回的工具调用。请求不自动重试、不跨供应商降级；缺少密钥时在发送前停止。凭据只通过请求头发送，Responses 请求显式关闭会话存储；数据保留仍以服务商政策为准。
 

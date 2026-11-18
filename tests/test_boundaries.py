@@ -13,6 +13,7 @@ class BoundaryTests(unittest.TestCase):
             "ports": {"typing", "contracts"},
             "planning": {"dataclasses", "contracts", "errors", "ports", "registry"},
             "registry": {"dataclasses", "contracts", "errors"},
+            "assistant": {"contracts", "ports"},
         }
         for module, imports in approved.items():
             tree = ast.parse((root / f"{module}.py").read_text(encoding="utf-8"))

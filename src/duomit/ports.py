@@ -2,7 +2,8 @@
 
 from typing import Protocol
 
-from .contracts import BuilderBinding, ChatRequest, ModelRequest, ModelResponse, Plan, RequestContext
+from .contracts import (AssistantBinding, BuilderBinding, ChatMessage, ChatRequest,
+                        ModelRequest, ModelResponse, Plan, RequestContext)
 
 
 class ModelPort(Protocol):
@@ -29,3 +30,12 @@ class ModelAccessPort(Protocol):
 
 class ChatPort(Protocol):
     def complete(self, request: ChatRequest, *, timeout_seconds: float) -> ModelResponse: ...
+
+
+class AssistantAccessPort(Protocol):
+    def complete(self, context: RequestContext, binding: AssistantBinding,
+                 request: ChatRequest) -> ModelResponse: ...
+
+
+class AssistantPort(Protocol):
+    def respond(self, context: RequestContext, messages: tuple[ChatMessage, ...]) -> ModelResponse: ...

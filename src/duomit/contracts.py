@@ -238,3 +238,24 @@ class ChatRequest:
                 "Conversation exceeds size limit")
         require(type(self.max_output_tokens) is int and 0 < self.max_output_tokens <= 8192,
                 "Invalid output token budget")
+
+
+@dataclass(frozen=True)
+class AssistantBinding:
+    tenant_id: str
+    principal_id: str
+    binding_id: str
+    revision: int
+    model: ModelMaterial
+    timeout_seconds: float = 10.0
+    max_output_tokens: int = 1024
+
+    def __post_init__(self):
+        for value in (self.tenant_id, self.principal_id, self.binding_id):
+            identifier(value)
+        require(type(self.revision) is int and self.revision > 0, "Invalid binding revision")
+        require(isinstance(self.model, ModelMaterial), "Invalid model material")
+        require(type(self.timeout_seconds) in (int, float) and math.isfinite(self.timeout_seconds)
+                and 0 < self.timeout_seconds <= 120, "Invalid timeout")
+        require(type(self.max_output_tokens) is int and 0 < self.max_output_tokens <= 8192,
+                "Invalid output token budget")
