@@ -10,7 +10,7 @@
   <a href="#当前状态"><img src="https://img.shields.io/badge/Stage-Early%20Development-D99A2B" alt="Early Development" /></a>
 </p>
 
-**[快速开始](#快速开始) · [交互测试](#交互测试) · [模型接入](#模型接入) · [功能特性](#功能特性) · [开发验证](#开发验证)**
+**[快速开始](#快速开始) · [模型接入](#模型接入) · [功能特性](#功能特性) · [开发验证](#开发验证)**
 
 [问题反馈](https://github.com/LittleRockets/duomiT/issues) · [源码](https://github.com/LittleRockets/duomiT) · [许可证](./LICENSE)
 
@@ -38,55 +38,22 @@
 git clone https://github.com/LittleRockets/duomiT.git
 cd duomiT
 $env:PYTHONPATH = "src"
-python -m duomit.demo_server --open
+python -m duomit --model sequential
 ```
 
-浏览器打开 **[本地测试台](http://127.0.0.1:8765)**。默认离线运行，不需要密钥，不产生模型 API 费用。
+此命令使用固定的离线模板输出结构化计划，无需 API 密钥。
 
 <details>
 <summary><strong>安装到 Python 环境</strong></summary>
 
 ```powershell
 python -m pip install .
-python -m duomit.demo_server --open
+python -m duomit --model sequential
 ```
 
 当前从仓库源码安装，未提供 PyPI 安装入口。
 
 </details>
-
-## 交互测试
-
-<p align="center">
-  <img src="./assets/testbench.jpg" alt="duomiT 本地测试台：任务输入、步骤状态、人工审批和执行事件" width="100%" />
-</p>
-
-<table>
-<tr><th align="left">测试入口</th><th align="left">可以观察什么</th></tr>
-<tr><td><strong>工作流验证</strong></td><td>生成计划，开始执行，批准或取消运行；模拟回执丢失后检查核对流程。</td></tr>
-<tr><td><strong>节点与镜像</strong></td><td>双向消息、共享只读材料、节点写入隔离，以及结束后的租约释放和缓存回收。</td></tr>
-<tr><td><strong>助理 API</strong></td><td>使用独立模型梳理或复核输入；助理不能批准操作或启动工作流。</td></tr>
-</table>
-
-> **验证范围**：离线规划使用固定两步模板，不理解目标语义；工具执行始终为模拟。评估规划质量时可显式选择真实 API。真实文件处理、报告生成和外部工具执行尚未接入。
-
-真实 API 模式使用**启动服务进程时**的密钥环境变量。设置对应变量后重新启动测试台，在页面选择服务商和模型 ID；请求由用户点击触发，可能产生费用。测试台仅监听 `127.0.0.1`，用于本地开发验证。
-
-### 命令行示例
-
-```powershell
-# 离线计划
-python -m duomit --model sequential
-
-# 持久化运行；随后批准并继续
-python -m duomit --database demo.sqlite3
-python -m duomit --database demo.sqlite3 --resume --approve
-
-# 固定双节点与镜像生命周期
-python -m duomit.node_demo --database desktop-demo.sqlite3
-```
-
-恢复使用已保存的计划，不再次请求规划模型。`--resume` 只恢复现有运行；创建不同计划请使用新的演示数据库。
 
 ## 模型接入
 
@@ -134,7 +101,7 @@ python -m duomit --config-database settings.sqlite3 --ask "梳理这项需求"
 python -m duomit --identity-database identities.sqlite3 --config-database settings.sqlite3 --ask "梳理这项需求"
 ```
 
-此示例要求该用户已保存助理模型配置。身份数据库仅保存令牌摘要，支持过期与撤销。未指定身份数据库时，命令行使用固定演示身份；浏览器测试台使用独立的本地演示身份。
+此示例要求该用户已保存助理模型配置。身份数据库仅保存令牌摘要，支持过期与撤销。未指定身份数据库时，命令行使用固定演示身份。
 
 </details>
 
@@ -170,7 +137,7 @@ python -m unittest discover -s tests -v
 python -m duomit --help
 ```
 
-测试覆盖契约、身份、API 映射、审批、恢复、并发租约、节点访问边界、HTTP 测试入口及打包资源。模型协议测试不依赖真实密钥。
+测试覆盖契约、身份、API 映射、审批、恢复、并发租约、节点访问边界及打包资源。模型协议测试不依赖真实密钥。
 
 欢迎通过 [Issues](https://github.com/LittleRockets/duomiT/issues) 提交复现步骤、预期行为与实际结果，通过 Pull Request 贡献接口、适配器和验证案例。
 
