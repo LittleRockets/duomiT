@@ -61,6 +61,7 @@ python -m duomit --model sequential
 | **流程意图** | 受控内置 FlowDraft 模板、独立语义/布局修订、有向无环边与固定摘要 ProcessIntent 映射。 |
 | **节点目录与提案审阅** | 不可变 NodeDescriptor 版本，以及由固定流程和节点输入生成的只读审阅 Proposal。 |
 | **Need、Workflow、Build 与 Run** | 经校验的领域交接可推导可重放的过程、交付、就绪与可观测性规格；跨任务混搭会被拒绝，且不会创建可执行工作。 |
+| **Builder LLM 边界** | Provider API 输出只能解码为严格的 Need 候选，并按 TaskRevision 再校验；它不能携带权限、工具或状态变更。 |
 | **本机视图** | 仅回环地址的只读 Project/Task 与 FlowDraft 投影；不会执行任务、调用模型或授予权限。 |
 
 ## 模型连接
