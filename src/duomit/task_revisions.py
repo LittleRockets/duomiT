@@ -124,6 +124,31 @@ class SqliteTaskRevisionStore:
                              (revision_id, task_id, 1, canonical_json(body), content_digest))
         return self._revision(body, content_digest)
 
+    def create_workspace_task(self, context: OrganizationContext, project_id: str, title: str, goal: str,
+                              deliverable: str, acceptance: tuple[AcceptanceCriterion, ...],
+                              constraints: tuple[str, ...] = ()) -> str:
+        """Atomically create the entry Task and its first immutable planning revision."""
+        identifier(project_id)
+        self._validate(title, goal, deliverable, acceptance, constraints)
+        workspace_task_id, task_id, revision_id = uuid.uuid4().hex, uuid.uuid4().hex, uuid.uuid4().hex
+        body = self._body(task_id, revision_id, 1, title, goal, deliverable, acceptance, constraints)
+        content_digest = digest(body)
+        with self._transaction():
+            project = self._db.execute("SELECT 1 FROM projects WHERE id=? AND organization_id=?",
+                                       (project_id, context.organization_id)).fetchone()
+            if project is None:
+                raise DuomitError("NOT_FOUND", "Project is not available")
+            self._db.execute("INSERT INTO tasks VALUES (?,?,?,?,?,?,?,1)",
+                             (workspace_task_id, project_id, context.organization_id, context.membership_id,
+                              title.strip(), goal.strip(), "draft"))
+            self._db.execute("INSERT INTO planning_tasks VALUES (?,?,?,?,1)",
+                             (task_id, context.organization_id, context.membership_id, 1))
+            self._db.execute("INSERT INTO task_revisions VALUES (?,?,?,?,?)",
+                             (revision_id, task_id, 1, canonical_json(body), content_digest))
+            self._db.execute("INSERT INTO workspace_task_revisions VALUES (?,?,?,?)",
+                             (workspace_task_id, task_id, context.organization_id, context.membership_id))
+        return workspace_task_id
+
     def revise(self, context: OrganizationContext, task_id: str, expected_task_revision: int, title: str, goal: str,
                deliverable: str, acceptance: tuple[AcceptanceCriterion, ...], constraints: tuple[str, ...] = ()) -> TaskRevision:
         require(type(expected_task_revision) is int and expected_task_revision > 0, "Invalid task revision")
@@ -139,6 +164,39 @@ class SqliteTaskRevisionStore:
             self._db.execute("INSERT INTO task_revisions VALUES (?,?,?,?,?)",
                              (revision_id, task_id, number, canonical_json(body), content_digest))
             self._db.execute("UPDATE planning_tasks SET current_number=?,revision=revision+1 WHERE id=?", (number, task_id))
+            return self._revision(body, content_digest)
+
+    def revise_workspace_task(self, context: OrganizationContext, workspace_task_id: str,
+                              expected_workspace_revision: int, title: str, goal: str, deliverable: str,
+                              acceptance: tuple[AcceptanceCriterion, ...],
+                              constraints: tuple[str, ...] = ()) -> TaskRevision:
+        """Atomically revise the Desktop projection and its linked planning Task."""
+        identifier(workspace_task_id)
+        require(type(expected_workspace_revision) is int and expected_workspace_revision > 0, "Invalid task revision")
+        self._validate(title, goal, deliverable, acceptance, constraints)
+        with self._transaction():
+            workspace = self._db.execute(
+                "SELECT revision FROM tasks WHERE id=? AND organization_id=? AND owner=?",
+                (workspace_task_id, context.organization_id, context.membership_id)).fetchone()
+            if workspace is None:
+                raise DuomitError("NOT_FOUND", "Task is not available")
+            if workspace["revision"] != expected_workspace_revision:
+                raise DuomitError("TASK_REVISION_CONFLICT", "Task revision has changed")
+            link = self._db.execute(
+                "SELECT task_id FROM workspace_task_revisions WHERE workspace_task_id=? AND organization_id=? AND owner_membership_id=?",
+                (workspace_task_id, context.organization_id, context.membership_id)).fetchone()
+            if link is None:
+                raise DuomitError("NOT_FOUND", "Task planning input is not available")
+            task = self._task(context, link["task_id"])
+            number, revision_id = task["current_number"] + 1, uuid.uuid4().hex
+            body = self._body(link["task_id"], revision_id, number, title, goal, deliverable, acceptance, constraints)
+            content_digest = digest(body)
+            self._db.execute("UPDATE tasks SET title=?,goal=?,revision=revision+1 WHERE id=?",
+                             (title.strip(), goal.strip(), workspace_task_id))
+            self._db.execute("INSERT INTO task_revisions VALUES (?,?,?,?,?)",
+                             (revision_id, link["task_id"], number, canonical_json(body), content_digest))
+            self._db.execute("UPDATE planning_tasks SET current_number=?,revision=revision+1 WHERE id=?",
+                             (number, link["task_id"]))
             return self._revision(body, content_digest)
 
     def get_current(self, context: OrganizationContext, task_id: str) -> TaskRevision:

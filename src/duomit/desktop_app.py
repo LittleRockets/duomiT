@@ -77,18 +77,23 @@ class NativeTaskViewModel:
         criteria = tuple(AcceptanceCriterion(f"criterion{index + 1}", statement)
                          for index, statement in enumerate(acceptance) if statement.strip())
         normalized_constraints = tuple(item.strip() for item in constraints if item.strip())
-        workspace = LocalWorkspace(self._database)
         planning = SqliteTaskRevisionStore(self._database)
         try:
-            # Validate the immutable planning contract before creating the entry task.
-            # This prevents a malformed Desktop form from leaving an unlinked workspace Task.
-            planning._validate(title, goal, deliverable, criteria, normalized_constraints)
-            task_id = workspace.create_task(self._context, self._project_id, title, goal)
-            revision = planning.create(self._context, title, goal, deliverable, criteria, normalized_constraints)
-            planning.link_workspace_task(self._context, task_id, revision.task_id)
-            return task_id
+            return planning.create_workspace_task(self._context, self._project_id, title, goal, deliverable,
+                                                  criteria, normalized_constraints)
         finally:
-            workspace.close()
+            planning.close()
+
+    def revise_task(self, workspace_task_id: str, expected_workspace_revision: int, title: str, goal: str,
+                    deliverable: str, acceptance: tuple[str, ...], constraints: tuple[str, ...] = ()) -> TaskRevision:
+        criteria = tuple(AcceptanceCriterion(f"criterion{index + 1}", statement)
+                         for index, statement in enumerate(acceptance) if statement.strip())
+        normalized_constraints = tuple(item.strip() for item in constraints if item.strip())
+        planning = SqliteTaskRevisionStore(self._database)
+        try:
+            return planning.revise_workspace_task(self._context, workspace_task_id, expected_workspace_revision,
+                                                  title, goal, deliverable, criteria, normalized_constraints)
+        finally:
             planning.close()
 
 
@@ -131,6 +136,7 @@ class DuomitDesktopApp:
         ttk.Button(header, text="Refresh", command=self.refresh).pack(anchor="e", side="right")
         ttk.Button(header, text="New Flow", command=self._open_flow_editor).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="New Task", command=self._open_task_dialog).pack(anchor="e", side="right", padx=(0, 8))
+        ttk.Button(header, text="Edit Task", command=self._open_task_edit_dialog).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="New Project", command=self._open_project_dialog).pack(anchor="e", side="right", padx=(0, 8))
 
         left = ttk.Frame(root, style="Panel.TFrame", padding=16)
@@ -258,6 +264,46 @@ class DuomitDesktopApp:
             NativeFlowDraftEditor(self._root, flow, draft.flow_draft_id)
         except Exception as error:
             messagebox.showerror("Cannot create FlowDraft", str(error), parent=self._root)
+
+    def _open_task_edit_dialog(self):
+        selected = self._tree.selection()
+        if not selected:
+            messagebox.showinfo("Select a Task", "Select a versioned local Task before editing it.", parent=self._root)
+            return
+        task = next((item for item in self._tasks if item.task_id == selected[0]), None)
+        if task is None or task.planning_revision is None:
+            messagebox.showinfo("Planning required", "Only Tasks with a versioned planning input can be revised.", parent=self._root)
+            return
+        revision = task.planning_revision
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Revise Task Planning")
+        dialog.transient(self._root); dialog.grab_set(); dialog.geometry("580x560")
+        body = ttk.Frame(dialog, padding=20); body.pack(fill="both", expand=True)
+        body.columnconfigure(0, weight=1); body.rowconfigure(3, weight=1); body.rowconfigure(7, weight=1)
+        ttk.Label(body, text=f"Creates planning revision {revision.number + 1}; revision {revision.number} remains immutable.").grid(row=0, column=0, sticky="w", pady=(0, 10))
+        ttk.Label(body, text="Task title").grid(row=1, column=0, sticky="w")
+        title = ttk.Entry(body); title.grid(row=2, column=0, sticky="ew", pady=(6, 12)); title.insert(0, task.title)
+        ttk.Label(body, text="Goal").grid(row=3, column=0, sticky="w")
+        goal = tk.Text(body, height=5, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        goal.grid(row=4, column=0, sticky="nsew", pady=(6, 12)); goal.insert("1.0", task.goal)
+        ttk.Label(body, text="Deliverable").grid(row=5, column=0, sticky="w")
+        deliverable = ttk.Entry(body); deliverable.grid(row=6, column=0, sticky="ew", pady=(6, 12)); deliverable.insert(0, revision.deliverable)
+        ttk.Label(body, text="Blocking acceptance criteria (one per line)").grid(row=7, column=0, sticky="w")
+        acceptance = tk.Text(body, height=5, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        acceptance.grid(row=8, column=0, sticky="nsew", pady=(6, 12)); acceptance.insert("1.0", "\n".join(item.statement for item in revision.acceptance))
+        ttk.Label(body, text="Constraints (optional, one per line)").grid(row=9, column=0, sticky="w")
+        constraints = ttk.Entry(body); constraints.grid(row=10, column=0, sticky="ew", pady=(6, 16)); constraints.insert(0, "\n".join(revision.constraints))
+
+        def submit():
+            try:
+                self._model.revise_task(task.task_id, task.revision, title.get(), goal.get("1.0", "end-1c"),
+                                        deliverable.get(), tuple(acceptance.get("1.0", "end-1c").splitlines()),
+                                        tuple(constraints.get().splitlines()))
+                dialog.destroy(); self.refresh()
+            except Exception as error:
+                messagebox.showerror("Cannot revise Task", str(error), parent=dialog)
+
+        ttk.Button(body, text="Create revision", command=submit).grid(row=11, column=0, sticky="e")
 
     def run(self):
         self._root.mainloop()
