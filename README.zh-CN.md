@@ -60,7 +60,7 @@ python -m duomit --model sequential
 | **任务材料** | 不可变 Artifact、精确版本 ResourceGrant、撤权复核与 ContextPackage 引用。 |
 | **流程意图** | 受控内置 FlowDraft 模板、独立语义/布局修订、有向无环边与固定摘要 ProcessIntent 映射。 |
 | **节点目录与提案审阅** | 不可变 NodeDescriptor 版本，以及由固定流程和节点输入生成的只读审阅 Proposal。 |
-| **Need、Workflow、Build 与 Run** | 经校验的领域交接可推导可重放的过程、交付、就绪与可观测性规格；不会创建可执行工作。 |
+| **Need、Workflow、Build 与 Run** | 经校验的领域交接可推导可重放的过程、交付、就绪与可观测性规格；跨任务混搭会被拒绝，且不会创建可执行工作。 |
 | **本机视图** | 仅回环地址的只读 Project/Task 与 FlowDraft 投影；不会执行任务、调用模型或授予权限。 |
 
 ## 模型连接
