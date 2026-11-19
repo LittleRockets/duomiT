@@ -62,7 +62,7 @@ python -m duomit --model sequential
 | **节点目录与提案审阅** | 不可变 NodeDescriptor 版本，以及由固定流程和节点输入生成的只读审阅 Proposal。 |
 | **Need、Workflow、Build 与 Run** | 经校验的领域交接可推导可重放的过程、交付、就绪与可观测性规格；跨任务混搭会被拒绝，且不会创建可执行工作。 |
 | **Builder LLM 边界** | Provider API 输出只能解码为严格的 Need 候选，并按 TaskRevision 再校验；它不能携带权限、工具或状态变更。 |
-| **本机视图** | 仅回环地址的只读 Project/Task 与 FlowDraft 投影；不会执行任务、调用模型或授予权限。 |
+| **原生 Desktop 壳层** | 原生 Project/Task 壳层与本地任务图；不会执行任务、调用模型或授予权限。 |
 
 ## 模型连接
 
@@ -85,9 +85,9 @@ python -m duomit --assistant-provider gemini --assistant-model-id "<model-id>" -
 
 `--api-key-env` 与 `--assistant-api-key-env` 接收的是环境变量**名称**，不是密钥值。
 
-## 本机视图
+## 原生 Desktop
 
-当前参考壳层只监听回环地址，并且仅可读取。它展示持久化的 Project/Task 状态，不会把草稿伪装为正在运行的工作流。
+当前参考壳层是原生桌面进程，不是 HTTP 服务。它展示持久化的 Project/Task 状态，不会把草稿伪装为正在运行的工作流。
 
 ## 项目状态
 

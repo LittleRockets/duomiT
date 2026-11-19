@@ -1,12 +1,4 @@
-param(
-  [int]$Port = 8765
-)
-
 $ErrorActionPreference = "Stop"
-
-if ($Port -lt 1 -or $Port -gt 65535) {
-  throw "Port must be between 1 and 65535."
-}
 
 $root = Split-Path -Parent $PSScriptRoot
 $database = Join-Path $root "build\p2-user-test\workspace.sqlite3"
@@ -21,10 +13,7 @@ if ([string]::IsNullOrWhiteSpace($projectId)) {
 }
 
 $env:PYTHONPATH = Join-Path $root "src"
-Write-Host "duomiT read-only dashboard: http://127.0.0.1:$Port/" -ForegroundColor Green
-Write-Host "Keep this window open. Press Ctrl+C to stop the local dashboard." -ForegroundColor Cyan
-
+Write-Host "Opening duomiT native Desktop..." -ForegroundColor Green
 python -m duomit `
-  --desktop-reference-workspace-database $database `
-  --desktop-project $projectId `
-  --desktop-port $Port
+  --desktop-workspace-database $database `
+  --desktop-project $projectId

@@ -62,7 +62,7 @@ The command uses a deterministic offline reference model and does not require an
 | **Node catalog and proposal review** | Immutable NodeDescriptor versions and review-only Proposal creation from pinned flow and descriptor inputs. |
 | **Need, Workflow, Build, and Run** | Validated domain handoffs derive replayable process, delivery, readiness, and observability specifications; cross-task mixing is rejected and no executable work is created. |
 | **Builder LLM boundary** | Provider API output is decoded only as a strict Need candidate and revalidated against TaskRevision; it cannot carry authority, tools, or state changes. |
-| **Local views** | Loopback-only read-only Project/Task and FlowDraft projections. They do not execute tasks, call models, or grant access. |
+| **Native Desktop shell** | A native Project/Task shell with a local task graph; it does not execute tasks, call models, or grant access. |
 
 ## Model Connectivity
 
@@ -85,9 +85,9 @@ python -m duomit --assistant-provider gemini --assistant-model-id "<model-id>" -
 
 `--api-key-env` and `--assistant-api-key-env` receive an environment-variable **name**, never a secret value.
 
-## Local views
+## Native Desktop
 
-The current reference shell is intentionally loopback-only and read-only. It presents persisted Project/Task state without claiming that a draft is a running workflow.
+The current reference shell is a native desktop process, not an HTTP service. It presents persisted Project/Task state without claiming that a draft is a running workflow.
 
 ## Project status
 
