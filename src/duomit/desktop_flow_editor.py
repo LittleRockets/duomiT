@@ -9,6 +9,7 @@ from tkinter import messagebox, ttk
 from .flow_drafts import FlowDraftSnapshot, SqliteFlowDraftStore
 from .flow_compiler import FlowCompilation, compile_flow_draft
 from .foundation import OrganizationContext
+from .desktop_design import DesktopTokens, configure_desktop_style, status_palette
 
 
 TEMPLATES = {
@@ -17,7 +18,7 @@ TEMPLATES = {
     "Build": ("requirements_refinement", "1_0"),
     "Run": ("operation_monitoring", "1_0"),
 }
-COLORS = {"need": "#647dff", "workflow": "#55dbc4", "build": "#e9a83d", "run": "#d66df0"}
+COLORS = {"need": "#0F766E", "workflow": "#1D4ED8", "build": "#B45309", "run": "#7E22CE"}
 
 
 class NativeFlowViewModel:
@@ -87,36 +88,44 @@ class NativeFlowDraftEditor:
     def __init__(self, parent: tk.Misc, model: NativeFlowViewModel, draft_id: str):
         self._model = model; self._draft_id = draft_id; self._snapshot = model.snapshot(draft_id)
         self._drag: tuple[str, int, int] | None = None; self._connect_from: str | None = None
-        self._window = tk.Toplevel(parent); self._window.title("duomiT FlowDraft · Process intent")
-        self._window.geometry("980x690"); self._window.minsize(760, 540)
+        self._window = tk.Toplevel(parent); self._window.title("duomiT · 流程草稿")
+        self._window.geometry("1040x720"); self._window.minsize(820, 580)
+        configure_desktop_style(self._window)
         self._build(); self._render()
 
     def _build(self):
         root = self._window; root.columnconfigure(0, weight=1); root.rowconfigure(1, weight=1)
-        toolbar = ttk.Frame(root, padding=12); toolbar.grid(row=0, column=0, sticky="ew")
+        toolbar = ttk.Frame(root, style="Surface.TFrame", padding=(20, 12)); toolbar.grid(row=0, column=0, sticky="ew")
+        ttk.Label(toolbar, text="流程草稿", style="PageTitle.TLabel").pack(side="left", padx=(0, 20))
         for label in TEMPLATES:
-            ttk.Button(toolbar, text=f"Add {label}", command=lambda item=label: self._add(item)).pack(side="left", padx=(0, 6))
-        ttk.Button(toolbar, text="Connect", command=self._start_connect).pack(side="left", padx=(12, 6))
-        ttk.Button(toolbar, text="Validate", command=self._validate).pack(side="left")
-        ttk.Button(toolbar, text="Review intent", command=self._review_intent).pack(side="left", padx=(6, 0))
-        self._status = tk.StringVar(value="Add controlled nodes, drag layout, then connect compatible nodes.")
-        ttk.Label(toolbar, textvariable=self._status).pack(side="right")
-        self._canvas = tk.Canvas(root, bg="#0b1b2a", highlightthickness=1, highlightbackground="#2a465d")
-        self._canvas.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+            ttk.Button(toolbar, text=f"添加 {label}", style="Secondary.TButton", command=lambda item=label: self._add(item)).pack(side="left", padx=(0, 6))
+        ttk.Button(toolbar, text="连接节点", style="Secondary.TButton", command=self._start_connect).pack(side="left", padx=(12, 6))
+        ttk.Button(toolbar, text="验证", style="Secondary.TButton", command=self._validate).pack(side="left")
+        ttk.Button(toolbar, text="审阅 ProcessIntent", style="Primary.TButton", command=self._review_intent).pack(side="right")
+        self._status = tk.StringVar(value="添加受控节点后，可拖拽布局并连接兼容端口。")
+        ttk.Label(toolbar, textvariable=self._status, style="Muted.TLabel").pack(side="right", padx=(0, 14))
+        self._canvas = tk.Canvas(root, bg=DesktopTokens.canvas, highlightthickness=1, highlightbackground=DesktopTokens.line)
+        self._canvas.grid(row=1, column=0, sticky="nsew", padx=20, pady=(16, 20))
 
     def _render(self):
         canvas = self._canvas; canvas.delete("all")
+        for x in range(0, max(canvas.winfo_width(), 880), 24):
+            canvas.create_line(x, 0, x, max(canvas.winfo_height(), 520), fill="#EEF1EF")
+        for y in range(0, max(canvas.winfo_height(), 520), 24):
+            canvas.create_line(0, y, max(canvas.winfo_width(), 880), y, fill="#EEF1EF")
         by_id = {node["id"]: node for node in self._snapshot.nodes}
         for edge in self._snapshot.edges:
             source, target = by_id[edge["from_node_id"]], by_id[edge["to_node_id"]]
             canvas.create_line(source["x"] + 210, source["y"] + 46, target["x"], target["y"] + 46,
-                               fill="#8396a8", width=2, arrow="last")
+                               fill=DesktopTokens.muted, width=1, arrow="last")
         for node in self._snapshot.nodes:
             domain = self._domain(node); color = COLORS[domain]; tag = f"node:{node['id']}"
             x, y = node["x"], node["y"]
-            canvas.create_rectangle(x, y, x + 210, y + 92, fill="#173b55", outline=color, width=2, tags=(tag,))
-            canvas.create_text(x + 14, y + 25, text=node["display_name"], anchor="w", fill="#edf4fc", font=("Segoe UI", 11, "bold"), tags=(tag,))
-            canvas.create_text(x + 14, y + 55, text=domain.upper(), anchor="w", fill=color, font=("Segoe UI", 9), tags=(tag,))
+            canvas.create_rectangle(x, y, x + 210, y + 92, fill=DesktopTokens.surface, outline=DesktopTokens.line, width=1, tags=(tag,))
+            canvas.create_rectangle(x, y, x + 4, y + 92, fill=color, outline=color, tags=(tag,))
+            canvas.create_text(x + 16, y + 25, text=node["display_name"], anchor="w", fill=DesktopTokens.ink, font=(DesktopTokens.font, 10, "bold"), tags=(tag,))
+            canvas.create_text(x + 16, y + 54, text=domain.upper(), anchor="w", fill=color, font=(DesktopTokens.font, 8, "bold"), tags=(tag,))
+            canvas.create_text(x + 16, y + 74, text="受控流程意图", anchor="w", fill=DesktopTokens.muted, font=(DesktopTokens.font, 8), tags=(tag,))
             canvas.tag_bind(tag, "<ButtonPress-1>", lambda event, node_id=node["id"]: self._press(node_id, event))
             canvas.tag_bind(tag, "<B1-Motion>", self._drag_motion)
             canvas.tag_bind(tag, "<ButtonRelease-1>", self._release)

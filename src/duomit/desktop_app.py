@@ -13,6 +13,7 @@ from tkinter import messagebox, ttk
 
 from .foundation import OrganizationContext
 from .desktop_flow_editor import NativeFlowDraftEditor, NativeFlowViewModel
+from .desktop_design import DesktopTokens, configure_desktop_style, status_palette
 from .task_revisions import AcceptanceCriterion, SqliteTaskRevisionStore, TaskRevision
 from .workspace import LocalWorkspace
 
@@ -105,58 +106,72 @@ class DuomitDesktopApp:
         self._tasks: tuple[TaskNode, ...] = ()
         self._selected_task_id: str | None = None
         self._root = tk.Tk()
-        self._root.title("duomiT Desktop · Local-first Builder")
-        self._root.geometry("1180x760")
-        self._root.minsize(920, 620)
+        self._root.title("duomiT · 本机工作台")
+        self._root.geometry("1280x800")
+        self._root.minsize(1024, 680)
         self._configure_style()
         self._build()
         self.refresh()
 
     def _configure_style(self):
-        self._root.configure(bg="#07131f")
-        style = ttk.Style(self._root)
-        style.theme_use("clam")
-        style.configure("App.TFrame", background="#07131f")
-        style.configure("Panel.TFrame", background="#102235")
-        style.configure("Title.TLabel", background="#07131f", foreground="#edf4fc", font=("Segoe UI", 22, "bold"))
-        style.configure("Muted.TLabel", background="#07131f", foreground="#9fb1c3", font=("Segoe UI", 10))
-        style.configure("Panel.TLabel", background="#102235", foreground="#edf4fc", font=("Segoe UI", 11, "bold"))
-        style.configure("Treeview", background="#102235", foreground="#edf4fc", fieldbackground="#102235", rowheight=31)
-        style.configure("Treeview.Heading", background="#18334b", foreground="#cfe0ee", relief="flat")
-        style.map("Treeview", background=[("selected", "#1d566d")])
+        configure_desktop_style(self._root)
 
     def _build(self):
         root = self._root
-        root.columnconfigure(1, weight=1); root.rowconfigure(1, weight=1)
-        header = ttk.Frame(root, style="App.TFrame", padding=(26, 22, 26, 15))
-        header.grid(row=0, column=0, columnspan=2, sticky="ew")
-        ttk.Label(header, text="duomiT Desktop", style="Title.TLabel").pack(anchor="w")
+        root.columnconfigure(1, weight=1); root.rowconfigure(0, weight=1)
+        rail = ttk.Frame(root, style="Rail.TFrame", padding=(20, 24))
+        rail.grid(row=0, column=0, sticky="nsw")
+        ttk.Label(rail, text="duomiT", style="RailBrand.TLabel").pack(anchor="w")
+        ttk.Label(rail, text="LOCAL ORGANIZATION WORKSPACE", style="RailMuted.TLabel").pack(anchor="w", pady=(2, 34))
+        ttk.Label(rail, text="工作台", style="Section.TLabel").pack(anchor="w", pady=(0, 6))
+        self._nav_task = ttk.Button(rail, text="任务", style="Primary.TButton", command=self.refresh)
+        self._nav_task.pack(fill="x", pady=(0, 8))
+        ttk.Button(rail, text="流程草稿", style="Secondary.TButton", command=self._open_flow_list).pack(fill="x", pady=(0, 8))
+        ttk.Separator(rail).pack(fill="x", pady=20)
+        ttk.Label(rail, text="本机边界", style="Section.TLabel").pack(anchor="w")
+        ttk.Label(rail, text="规划对象可审阅\n不执行任务\n不调用模型", style="RailMuted.TLabel", justify="left").pack(anchor="w", pady=(8, 0))
+        ttk.Button(rail, text="新建项目", style="Quiet.TButton", command=self._open_project_dialog).pack(anchor="w", pady=(28, 0))
+
+        body = ttk.Frame(root, style="App.TFrame")
+        body.grid(row=0, column=1, sticky="nsew")
+        body.columnconfigure(0, weight=1); body.rowconfigure(1, weight=1)
+        header = ttk.Frame(body, style="Surface.TFrame", padding=(28, 16))
+        header.grid(row=0, column=0, sticky="ew")
+        ttk.Label(header, text="任务工作台", style="PageTitle.TLabel").pack(anchor="w")
         self._subtitle = tk.StringVar()
         ttk.Label(header, textvariable=self._subtitle, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
-        ttk.Button(header, text="Refresh", command=self.refresh).pack(anchor="e", side="right")
-        ttk.Button(header, text="Flows", command=self._open_flow_list).pack(anchor="e", side="right", padx=(0, 8))
-        ttk.Button(header, text="New Flow", command=self._open_flow_editor).pack(anchor="e", side="right", padx=(0, 8))
-        ttk.Button(header, text="New Task", command=self._open_task_dialog).pack(anchor="e", side="right", padx=(0, 8))
-        ttk.Button(header, text="Edit Task", command=self._open_task_edit_dialog).pack(anchor="e", side="right", padx=(0, 8))
-        ttk.Button(header, text="New Project", command=self._open_project_dialog).pack(anchor="e", side="right", padx=(0, 8))
+        ttk.Button(header, text="新建版本化任务", style="Primary.TButton", command=self._open_task_dialog).pack(anchor="e", side="right")
+        ttk.Button(header, text="刷新", style="Secondary.TButton", command=self.refresh).pack(anchor="e", side="right", padx=(0, 8))
 
-        left = ttk.Frame(root, style="Panel.TFrame", padding=16)
-        left.grid(row=1, column=0, sticky="nsew", padx=(26, 12), pady=(0, 26))
-        ttk.Label(left, text="Tasks", style="Panel.TLabel").pack(anchor="w", pady=(0, 10))
+        work = ttk.Frame(body, style="App.TFrame", padding=(24, 20, 24, 24))
+        work.grid(row=1, column=0, sticky="nsew")
+        work.columnconfigure(1, weight=1); work.rowconfigure(0, weight=1)
+        left = ttk.Frame(work, style="Surface.TFrame", padding=16)
+        left.grid(row=0, column=0, sticky="ns", padx=(0, 16))
+        ttk.Label(left, text="任务", style="Section.TLabel").pack(anchor="w")
+        ttk.Label(left, text="选择一个任务以检查其规划状态。", style="Muted.TLabel", wraplength=270).pack(anchor="w", pady=(4, 12))
         self._tree = ttk.Treeview(left, columns=("state",), show="tree headings", height=18)
         self._tree.heading("#0", text="Task"); self._tree.heading("state", text="State")
         self._tree.column("#0", width=230, minwidth=160); self._tree.column("state", width=76, minwidth=65)
         self._tree.pack(fill="both", expand=True); self._tree.bind("<<TreeviewSelect>>", self._select_task)
-        ttk.Label(left, text="This shell does not execute tasks or call models.", style="Muted.TLabel", wraplength=285).pack(anchor="w", pady=(14, 0))
+        ttk.Label(left, text="此工作台不会执行任务或调用模型。", style="Muted.TLabel", wraplength=270).pack(anchor="w", pady=(14, 0))
 
-        right = ttk.Frame(root, style="Panel.TFrame", padding=16)
-        right.grid(row=1, column=1, sticky="nsew", padx=(0, 26), pady=(0, 26))
+        right = ttk.Frame(work, style="Surface.TFrame", padding=16)
+        right.grid(row=0, column=1, sticky="nsew")
         right.rowconfigure(1, weight=1); right.columnconfigure(0, weight=1)
-        ttk.Label(right, text="Task graph", style="Panel.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 10))
-        self._canvas = tk.Canvas(right, bg="#0b1b2a", highlightthickness=1, highlightbackground="#2a465d")
+        toolbar = ttk.Frame(right, style="Surface.TFrame")
+        toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        ttk.Label(toolbar, text="任务图", style="Section.TLabel").pack(side="left")
+        ttk.Button(toolbar, text="编辑任务", style="Secondary.TButton", command=self._open_task_edit_dialog).pack(side="right")
+        ttk.Button(toolbar, text="查看流程", style="Secondary.TButton", command=self._open_flow_list).pack(side="right", padx=(0, 8))
+        ttk.Button(toolbar, text="新建流程", style="Quiet.TButton", command=self._open_flow_editor).pack(side="right", padx=(0, 8))
+        self._canvas = tk.Canvas(right, bg=DesktopTokens.canvas, highlightthickness=1, highlightbackground=DesktopTokens.line)
         self._canvas.grid(row=1, column=0, sticky="nsew")
-        self._detail = tk.StringVar(value="Select a task to inspect its local draft projection.")
-        ttk.Label(right, textvariable=self._detail, style="Muted.TLabel", wraplength=700).grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        self._detail = tk.StringVar(value="选择任务以检查其版本化规划与流程草稿。")
+        detail = ttk.Frame(right, style="Subtle.TFrame", padding=12)
+        detail.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        ttk.Label(detail, text="检查器", style="Section.TLabel").pack(anchor="w")
+        ttk.Label(detail, textvariable=self._detail, style="Muted.TLabel", wraplength=760, justify="left").pack(anchor="w", pady=(5, 0))
 
     def refresh(self):
         self._tasks = self._model.load_tasks()
@@ -172,15 +187,24 @@ class DuomitDesktopApp:
     def _draw_graph(self):
         canvas = self._canvas; canvas.delete("all")
         if not self._tasks:
-            canvas.create_text(320, 170, text="No Task nodes", fill="#9fb1c3", font=("Segoe UI", 14))
+            canvas.create_text(350, 180, text="尚无任务", fill=DesktopTokens.muted, font=(DesktopTokens.font, 15, "bold"))
+            canvas.create_text(350, 210, text="使用“新建版本化任务”开始组织工作。", fill=DesktopTokens.muted, font=(DesktopTokens.font, 10))
             return
+        width = max(canvas.winfo_width(), 700)
+        for x in range(0, width, 24):
+            canvas.create_line(x, 0, x, max(canvas.winfo_height(), 440), fill="#EEF1EF")
+        for y in range(0, max(canvas.winfo_height(), 440), 24):
+            canvas.create_line(0, y, width, y, fill="#EEF1EF")
         for task in self._tasks:
             x, y = task.x, task.y
-            canvas.create_rectangle(x, y, x + 210, y + 92, fill="#173b55", outline="#55dbc4", width=2, tags=(task.task_id,))
-            canvas.create_text(x + 14, y + 24, text=task.title[:26], fill="#edf4fc", anchor="w", font=("Segoe UI", 11, "bold"), tags=(task.task_id,))
-            canvas.create_text(x + 14, y + 53, text=task.state.upper(), fill="#e9a83d", anchor="w", font=("Segoe UI", 9), tags=(task.task_id,))
+            color, background = status_palette("valid" if task.planning_revision else "attention")
+            canvas.create_rectangle(x, y, x + 210, y + 92, fill=DesktopTokens.surface, outline=DesktopTokens.line, width=1, tags=(task.task_id,))
+            canvas.create_rectangle(x, y, x + 4, y + 92, fill=color, outline=color, tags=(task.task_id,))
+            canvas.create_text(x + 16, y + 24, text=task.title[:26], fill=DesktopTokens.ink, anchor="w", font=(DesktopTokens.font, 10, "bold"), tags=(task.task_id,))
+            canvas.create_rectangle(x + 16, y + 42, x + 97, y + 62, fill=background, outline=background, tags=(task.task_id,))
+            canvas.create_text(x + 23, y + 52, text="已规划" if task.planning_revision else "待规划", fill=color, anchor="w", font=(DesktopTokens.font, 8, "bold"), tags=(task.task_id,))
             revision = f"plan v{task.planning_revision.number}" if task.planning_revision else "planning required"
-            canvas.create_text(x + 14, y + 74, text=revision, fill="#9fb1c3", anchor="w", font=("Segoe UI", 9), tags=(task.task_id,))
+            canvas.create_text(x + 16, y + 76, text=revision, fill=DesktopTokens.muted, anchor="w", font=(DesktopTokens.font, 8), tags=(task.task_id,))
             canvas.tag_bind(task.task_id, "<Button-1>", lambda event, task_id=task.task_id: self._show_task(task_id))
 
     def _select_task(self, _event):
@@ -206,10 +230,10 @@ class DuomitDesktopApp:
 
     def _open_project_dialog(self):
         dialog = tk.Toplevel(self._root)
-        dialog.title("Create Project")
+        dialog.title("新建项目")
         dialog.transient(self._root); dialog.grab_set(); dialog.resizable(False, False)
         body = ttk.Frame(dialog, padding=20); body.pack(fill="both", expand=True)
-        ttk.Label(body, text="Project name").grid(row=0, column=0, sticky="w")
+        ttk.Label(body, text="项目名称").grid(row=0, column=0, sticky="w")
         name = ttk.Entry(body, width=42); name.grid(row=1, column=0, pady=(6, 16)); name.focus_set()
 
         def submit():
@@ -219,26 +243,26 @@ class DuomitDesktopApp:
             except Exception as error:
                 messagebox.showerror("Cannot create Project", str(error), parent=dialog)
 
-        ttk.Button(body, text="Create", command=submit).grid(row=2, column=0, sticky="e")
+        ttk.Button(body, text="创建项目", style="Primary.TButton", command=submit).grid(row=2, column=0, sticky="e")
         dialog.bind("<Return>", lambda _event: submit())
 
     def _open_task_dialog(self):
         dialog = tk.Toplevel(self._root)
-        dialog.title("Create Task")
+        dialog.title("新建版本化任务")
         dialog.transient(self._root); dialog.grab_set(); dialog.geometry("580x560")
         body = ttk.Frame(dialog, padding=20); body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1); body.rowconfigure(3, weight=1); body.rowconfigure(7, weight=1)
-        ttk.Label(body, text="Task title").grid(row=0, column=0, sticky="w")
+        ttk.Label(body, text="任务名称 *").grid(row=0, column=0, sticky="w")
         title = ttk.Entry(body); title.grid(row=1, column=0, sticky="ew", pady=(6, 14)); title.focus_set()
-        ttk.Label(body, text="Goal").grid(row=2, column=0, sticky="w")
-        goal = tk.Text(body, height=5, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        ttk.Label(body, text="目标 *").grid(row=2, column=0, sticky="w")
+        goal = tk.Text(body, height=5, bg=DesktopTokens.surface, fg=DesktopTokens.ink, insertbackground=DesktopTokens.ink, highlightthickness=1, highlightbackground=DesktopTokens.line, relief="flat", padx=8, pady=8)
         goal.grid(row=3, column=0, sticky="nsew", pady=(6, 12))
-        ttk.Label(body, text="Deliverable").grid(row=4, column=0, sticky="w")
+        ttk.Label(body, text="交付物 *").grid(row=4, column=0, sticky="w")
         deliverable = ttk.Entry(body); deliverable.grid(row=5, column=0, sticky="ew", pady=(6, 12))
-        ttk.Label(body, text="Blocking acceptance criteria (one per line)").grid(row=6, column=0, sticky="w")
-        acceptance = tk.Text(body, height=5, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        ttk.Label(body, text="阻塞验收标准 *（每行一项）").grid(row=6, column=0, sticky="w")
+        acceptance = tk.Text(body, height=5, bg=DesktopTokens.surface, fg=DesktopTokens.ink, insertbackground=DesktopTokens.ink, highlightthickness=1, highlightbackground=DesktopTokens.line, relief="flat", padx=8, pady=8)
         acceptance.grid(row=7, column=0, sticky="nsew", pady=(6, 12))
-        ttk.Label(body, text="Constraints (optional, one per line)").grid(row=8, column=0, sticky="w")
+        ttk.Label(body, text="约束（可选，每行一项）").grid(row=8, column=0, sticky="w")
         constraints = ttk.Entry(body); constraints.grid(row=9, column=0, sticky="ew", pady=(6, 16))
 
         def submit():
@@ -250,7 +274,7 @@ class DuomitDesktopApp:
             except Exception as error:
                 messagebox.showerror("Cannot create Task", str(error), parent=dialog)
 
-        ttk.Button(body, text="Create versioned task", command=submit).grid(row=10, column=0, sticky="e")
+        ttk.Button(body, text="创建版本化任务", style="Primary.TButton", command=submit).grid(row=10, column=0, sticky="e")
 
     def _open_flow_editor(self):
         selected = self._tree.selection()
@@ -310,22 +334,22 @@ class DuomitDesktopApp:
             return
         revision = task.planning_revision
         dialog = tk.Toplevel(self._root)
-        dialog.title("Revise Task Planning")
+        dialog.title("修订任务规划")
         dialog.transient(self._root); dialog.grab_set(); dialog.geometry("580x560")
         body = ttk.Frame(dialog, padding=20); body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1); body.rowconfigure(3, weight=1); body.rowconfigure(7, weight=1)
-        ttk.Label(body, text=f"Creates planning revision {revision.number + 1}; revision {revision.number} remains immutable.").grid(row=0, column=0, sticky="w", pady=(0, 10))
-        ttk.Label(body, text="Task title").grid(row=1, column=0, sticky="w")
+        ttk.Label(body, text=f"将创建规划版本 {revision.number + 1}；版本 {revision.number} 保持不可变。", style="Muted.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 10))
+        ttk.Label(body, text="任务名称 *").grid(row=1, column=0, sticky="w")
         title = ttk.Entry(body); title.grid(row=2, column=0, sticky="ew", pady=(6, 12)); title.insert(0, task.title)
-        ttk.Label(body, text="Goal").grid(row=3, column=0, sticky="w")
-        goal = tk.Text(body, height=5, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        ttk.Label(body, text="目标 *").grid(row=3, column=0, sticky="w")
+        goal = tk.Text(body, height=5, bg=DesktopTokens.surface, fg=DesktopTokens.ink, insertbackground=DesktopTokens.ink, highlightthickness=1, highlightbackground=DesktopTokens.line, relief="flat", padx=8, pady=8)
         goal.grid(row=4, column=0, sticky="nsew", pady=(6, 12)); goal.insert("1.0", task.goal)
-        ttk.Label(body, text="Deliverable").grid(row=5, column=0, sticky="w")
+        ttk.Label(body, text="交付物 *").grid(row=5, column=0, sticky="w")
         deliverable = ttk.Entry(body); deliverable.grid(row=6, column=0, sticky="ew", pady=(6, 12)); deliverable.insert(0, revision.deliverable)
-        ttk.Label(body, text="Blocking acceptance criteria (one per line)").grid(row=7, column=0, sticky="w")
-        acceptance = tk.Text(body, height=5, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        ttk.Label(body, text="阻塞验收标准 *（每行一项）").grid(row=7, column=0, sticky="w")
+        acceptance = tk.Text(body, height=5, bg=DesktopTokens.surface, fg=DesktopTokens.ink, insertbackground=DesktopTokens.ink, highlightthickness=1, highlightbackground=DesktopTokens.line, relief="flat", padx=8, pady=8)
         acceptance.grid(row=8, column=0, sticky="nsew", pady=(6, 12)); acceptance.insert("1.0", "\n".join(item.statement for item in revision.acceptance))
-        ttk.Label(body, text="Constraints (optional, one per line)").grid(row=9, column=0, sticky="w")
+        ttk.Label(body, text="约束（可选，每行一项）").grid(row=9, column=0, sticky="w")
         constraints = ttk.Entry(body); constraints.grid(row=10, column=0, sticky="ew", pady=(6, 16)); constraints.insert(0, "\n".join(revision.constraints))
 
         def submit():
@@ -337,7 +361,7 @@ class DuomitDesktopApp:
             except Exception as error:
                 messagebox.showerror("Cannot revise Task", str(error), parent=dialog)
 
-        ttk.Button(body, text="Create revision", command=submit).grid(row=11, column=0, sticky="e")
+        ttk.Button(body, text="创建新版本", style="Primary.TButton", command=submit).grid(row=11, column=0, sticky="e")
 
     def run(self):
         self._root.mainloop()
