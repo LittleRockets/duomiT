@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .foundation import OrganizationContext
+from .desktop_flow_editor import NativeFlowDraftEditor, NativeFlowViewModel
 from .workspace import LocalWorkspace
 
 
@@ -47,6 +48,14 @@ class NativeTaskViewModel:
     @property
     def project_id(self) -> str:
         return self._project_id
+
+    @property
+    def database(self) -> str | Path:
+        return self._database
+
+    @property
+    def context(self) -> OrganizationContext:
+        return self._context
 
     def create_project(self, name: str) -> str:
         workspace = LocalWorkspace(self._database)
@@ -101,6 +110,7 @@ class DuomitDesktopApp:
         self._subtitle = tk.StringVar()
         ttk.Label(header, textvariable=self._subtitle, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         ttk.Button(header, text="Refresh", command=self.refresh).pack(anchor="e", side="right")
+        ttk.Button(header, text="New Flow", command=self._open_flow_editor).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="New Task", command=self._open_task_dialog).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="New Project", command=self._open_project_dialog).pack(anchor="e", side="right", padx=(0, 8))
 
@@ -198,6 +208,20 @@ class DuomitDesktopApp:
                 messagebox.showerror("Cannot create Task", str(error), parent=dialog)
 
         ttk.Button(body, text="Create draft", command=submit).grid(row=4, column=0, sticky="e")
+
+    def _open_flow_editor(self):
+        selected = self._tree.selection()
+        if not selected:
+            messagebox.showinfo("Select a Task", "Select a local Task before creating its FlowDraft.", parent=self._root)
+            return
+        task = next((item for item in self._tasks if item.task_id == selected[0]), None)
+        if task is None: return
+        try:
+            flow = NativeFlowViewModel(self._model.database, self._model.context)
+            draft = flow.create_draft(task.task_id, f"{task.title} flow")
+            NativeFlowDraftEditor(self._root, flow, draft.flow_draft_id)
+        except Exception as error:
+            messagebox.showerror("Cannot create FlowDraft", str(error), parent=self._root)
 
     def run(self):
         self._root.mainloop()

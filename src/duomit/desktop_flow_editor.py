@@ -1,0 +1,152 @@
+"""Native FlowDraft editor for controlled process intent, not executable workflow."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+from .flow_drafts import FlowDraftSnapshot, SqliteFlowDraftStore
+from .foundation import OrganizationContext
+
+
+TEMPLATES = {
+    "Need": ("outcome_alignment", "1_0"),
+    "Workflow": ("process_plan", "1_0"),
+    "Build": ("requirements_refinement", "1_0"),
+    "Run": ("operation_monitoring", "1_0"),
+}
+COLORS = {"need": "#647dff", "workflow": "#55dbc4", "build": "#e9a83d", "run": "#d66df0"}
+
+
+class NativeFlowViewModel:
+    def __init__(self, database: str | Path, context: OrganizationContext):
+        self._database = database; self._context = context
+
+    def create_draft(self, task_id: str, name: str) -> FlowDraftSnapshot:
+        store = SqliteFlowDraftStore(self._database)
+        try: return store.create(self._context, task_id, name)
+        finally: store.close()
+
+    def snapshot(self, draft_id: str) -> FlowDraftSnapshot:
+        store = SqliteFlowDraftStore(self._database)
+        try: return store.get_snapshot(self._context, draft_id)
+        finally: store.close()
+
+    def add_node(self, draft_id: str, label: str) -> FlowDraftSnapshot:
+        template_id, version = TEMPLATES[label]
+        store = SqliteFlowDraftStore(self._database)
+        try:
+            snapshot = store.get_snapshot(self._context, draft_id)
+            x, y = 44 + (len(snapshot.nodes) % 3) * 244, 54 + (len(snapshot.nodes) // 3) * 150
+            return store.add_node(self._context, draft_id, snapshot.semantic_revision, template_id, version,
+                                  label, {}, x=x, y=y)
+        finally: store.close()
+
+    def move_node(self, draft_id: str, node_id: str, x: int, y: int) -> FlowDraftSnapshot:
+        store = SqliteFlowDraftStore(self._database)
+        try:
+            snapshot = store.get_snapshot(self._context, draft_id)
+            return store.move_node(self._context, draft_id, snapshot.layout_revision, node_id, x, y)
+        finally: store.close()
+
+    def connect(self, draft_id: str, from_node_id: str, to_node_id: str) -> FlowDraftSnapshot:
+        store = SqliteFlowDraftStore(self._database)
+        try:
+            snapshot = store.get_snapshot(self._context, draft_id)
+            return store.add_edge(self._context, draft_id, snapshot.semantic_revision,
+                                  from_node_id, "out", to_node_id, "in", "control")
+        finally: store.close()
+
+    def validate(self, draft_id: str) -> dict:
+        store = SqliteFlowDraftStore(self._database)
+        try: return store.validate(self._context, draft_id)
+        finally: store.close()
+
+    def node_domain(self, node: dict) -> str:
+        store = SqliteFlowDraftStore(self._database)
+        try: return store.get_template(node["template_id"], node["template_version"]).domain
+        finally: store.close()
+
+
+class NativeFlowDraftEditor:
+    def __init__(self, parent: tk.Misc, model: NativeFlowViewModel, draft_id: str):
+        self._model = model; self._draft_id = draft_id; self._snapshot = model.snapshot(draft_id)
+        self._drag: tuple[str, int, int] | None = None; self._connect_from: str | None = None
+        self._window = tk.Toplevel(parent); self._window.title("duomiT FlowDraft · Process intent")
+        self._window.geometry("980x690"); self._window.minsize(760, 540)
+        self._build(); self._render()
+
+    def _build(self):
+        root = self._window; root.columnconfigure(0, weight=1); root.rowconfigure(1, weight=1)
+        toolbar = ttk.Frame(root, padding=12); toolbar.grid(row=0, column=0, sticky="ew")
+        for label in TEMPLATES:
+            ttk.Button(toolbar, text=f"Add {label}", command=lambda item=label: self._add(item)).pack(side="left", padx=(0, 6))
+        ttk.Button(toolbar, text="Connect", command=self._start_connect).pack(side="left", padx=(12, 6))
+        ttk.Button(toolbar, text="Validate", command=self._validate).pack(side="left")
+        self._status = tk.StringVar(value="Add controlled nodes, drag layout, then connect compatible nodes.")
+        ttk.Label(toolbar, textvariable=self._status).pack(side="right")
+        self._canvas = tk.Canvas(root, bg="#0b1b2a", highlightthickness=1, highlightbackground="#2a465d")
+        self._canvas.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+
+    def _render(self):
+        canvas = self._canvas; canvas.delete("all")
+        by_id = {node["id"]: node for node in self._snapshot.nodes}
+        for edge in self._snapshot.edges:
+            source, target = by_id[edge["from_node_id"]], by_id[edge["to_node_id"]]
+            canvas.create_line(source["x"] + 210, source["y"] + 46, target["x"], target["y"] + 46,
+                               fill="#8396a8", width=2, arrow="last")
+        for node in self._snapshot.nodes:
+            domain = self._domain(node); color = COLORS[domain]; tag = f"node:{node['id']}"
+            x, y = node["x"], node["y"]
+            canvas.create_rectangle(x, y, x + 210, y + 92, fill="#173b55", outline=color, width=2, tags=(tag,))
+            canvas.create_text(x + 14, y + 25, text=node["display_name"], anchor="w", fill="#edf4fc", font=("Segoe UI", 11, "bold"), tags=(tag,))
+            canvas.create_text(x + 14, y + 55, text=domain.upper(), anchor="w", fill=color, font=("Segoe UI", 9), tags=(tag,))
+            canvas.tag_bind(tag, "<ButtonPress-1>", lambda event, node_id=node["id"]: self._press(node_id, event))
+            canvas.tag_bind(tag, "<B1-Motion>", self._drag_motion)
+            canvas.tag_bind(tag, "<ButtonRelease-1>", self._release)
+
+    def _domain(self, node: dict) -> str:
+        return self._model.node_domain(node)
+
+    def _add(self, label: str):
+        try:
+            self._snapshot = self._model.add_node(self._draft_id, label); self._status.set(f"Added {label} node."); self._render()
+        except Exception as error: messagebox.showerror("Cannot add node", str(error), parent=self._window)
+
+    def _start_connect(self):
+        self._connect_from = None; self._status.set("Connect mode: select a source node, then a target node.")
+
+    def _press(self, node_id: str, event):
+        if self._connect_from is not None:
+            if self._connect_from == node_id: return
+            try:
+                self._snapshot = self._model.connect(self._draft_id, self._connect_from, node_id)
+                self._status.set("Control edge added."); self._connect_from = None; self._render()
+            except Exception as error:
+                self._connect_from = None; messagebox.showerror("Cannot connect nodes", str(error), parent=self._window)
+            return
+        if self._status.get().startswith("Connect mode"):
+            self._connect_from = node_id; self._status.set("Select a target node."); return
+        node = next(item for item in self._snapshot.nodes if item["id"] == node_id)
+        self._drag = (node_id, event.x - node["x"], event.y - node["y"])
+
+    def _drag_motion(self, event):
+        if self._drag is None: return
+        node_id, offset_x, offset_y = self._drag; node = next(item for item in self._snapshot.nodes if item["id"] == node_id)
+        dx, dy = event.x - offset_x - node["x"], event.y - offset_y - node["y"]
+        self._canvas.move(f"node:{node_id}", dx, dy)
+
+    def _release(self, event):
+        if self._drag is None: return
+        node_id, offset_x, offset_y = self._drag; self._drag = None
+        try:
+            self._snapshot = self._model.move_node(self._draft_id, node_id, event.x - offset_x, event.y - offset_y)
+            self._status.set("Layout saved."); self._render()
+        except Exception as error: messagebox.showerror("Cannot move node", str(error), parent=self._window); self._render()
+
+    def _validate(self):
+        report = self._model.validate(self._draft_id)
+        self._status.set(f"Draft validation: {report['status']}.")
+        if report["status"] != "valid":
+            messagebox.showwarning("FlowDraft validation", "Add or repair required controlled connections before compiling.", parent=self._window)

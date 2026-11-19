@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from duomit.desktop_app import DuomitDesktopApp, NativeTaskViewModel, TaskNode
+from duomit.desktop_flow_editor import NativeFlowViewModel
 from duomit.foundation import OrganizationContext
 from duomit.workspace import LocalWorkspace
 
@@ -51,6 +52,20 @@ class NativeDesktopViewTests(unittest.TestCase):
         app._show_task("taskone")
         app._show_task("taskone")
         self.assertEqual(app._tree.set_count, 1)
+
+    def test_native_flow_view_model_edits_controlled_draft_without_execution(self):
+        workspace = LocalWorkspace(self.path)
+        try:
+            project = workspace.create_project(self.context, "Project")
+            task = workspace.create_task(self.context, project, "Task", "Goal")
+        finally:
+            workspace.close()
+        flow = NativeFlowViewModel(self.path, self.context)
+        draft = flow.create_draft(task, "Task flow")
+        draft = flow.add_node(draft.flow_draft_id, "Need")
+        draft = flow.add_node(draft.flow_draft_id, "Workflow")
+        draft = flow.connect(draft.flow_draft_id, draft.nodes[0]["id"], draft.nodes[1]["id"])
+        self.assertEqual(flow.validate(draft.flow_draft_id)["status"], "valid")
 
 
 if __name__ == "__main__":
