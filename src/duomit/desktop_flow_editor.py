@@ -57,6 +57,42 @@ class NativeFlowViewModel:
             return store.move_node(self._context, draft_id, snapshot.layout_revision, node_id, x, y)
         finally: store.close()
 
+    def auto_layout(self, draft_id: str) -> FlowDraftSnapshot:
+        """Place a directed draft in stable columns without requiring drag input."""
+        store = SqliteFlowDraftStore(self._database)
+        try:
+            snapshot = store.get_snapshot(self._context, draft_id)
+            nodes = list(snapshot.nodes)
+            by_id = {node["id"]: node for node in nodes}
+            incoming = {node_id: 0 for node_id in by_id}
+            outgoing = {node_id: [] for node_id in by_id}
+            for edge in snapshot.edges:
+                outgoing[edge["from_node_id"]].append(edge["to_node_id"])
+                incoming[edge["to_node_id"]] += 1
+            pending = [node["id"] for node in nodes if incoming[node["id"]] == 0]
+            layer = {node_id: 0 for node_id in pending}
+            ordered: list[str] = []
+            while pending:
+                current = pending.pop(0); ordered.append(current)
+                for target in outgoing[current]:
+                    layer[target] = max(layer.get(target, 0), layer[current] + 1)
+                    incoming[target] -= 1
+                    if incoming[target] == 0:
+                        pending.append(target)
+            # Validation rejects cycles before compilation, but preserve every node
+            # in a deterministic row even while a draft is incomplete.
+            ordered.extend(node_id for node_id in by_id if node_id not in ordered)
+            rows: dict[int, int] = {}
+            current = snapshot
+            for node_id in ordered:
+                column = layer.get(node_id, 0); row = rows.get(column, 0); rows[column] = row + 1
+                x, y = 44 + column * 260, 54 + row * 140
+                node = by_id[node_id]
+                if (node["x"], node["y"]) != (x, y):
+                    current = store.move_node(self._context, draft_id, current.layout_revision, node_id, x, y)
+            return current
+        finally: store.close()
+
     def connect(self, draft_id: str, from_node_id: str, to_node_id: str) -> FlowDraftSnapshot:
         store = SqliteFlowDraftStore(self._database)
         try:
@@ -100,6 +136,7 @@ class NativeFlowDraftEditor:
         for label in TEMPLATES:
             ttk.Button(toolbar, text=f"添加 {label}", style="Secondary.TButton", command=lambda item=label: self._add(item)).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="连接节点", style="Secondary.TButton", command=self._start_connect).pack(side="left", padx=(12, 6))
+        ttk.Button(toolbar, text="自动布局", style="Secondary.TButton", command=self._auto_layout).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="验证", style="Secondary.TButton", command=self._validate).pack(side="left")
         ttk.Button(toolbar, text="审阅 ProcessIntent", style="Primary.TButton", command=self._review_intent).pack(side="right")
         self._status = tk.StringVar(value="添加受控节点后，可拖拽布局并连接兼容端口。")
@@ -135,23 +172,30 @@ class NativeFlowDraftEditor:
 
     def _add(self, label: str):
         try:
-            self._snapshot = self._model.add_node(self._draft_id, label); self._status.set(f"Added {label} node."); self._render()
+            self._snapshot = self._model.add_node(self._draft_id, label); self._status.set(f"已添加 {label} 节点。"); self._render()
         except Exception as error: messagebox.showerror("Cannot add node", str(error), parent=self._window)
 
+    def _auto_layout(self):
+        try:
+            self._snapshot = self._model.auto_layout(self._draft_id)
+            self._status.set("已按流程依赖自动布局。")
+            self._render()
+        except Exception as error: messagebox.showerror("Cannot lay out nodes", str(error), parent=self._window)
+
     def _start_connect(self):
-        self._connect_from = None; self._status.set("Connect mode: select a source node, then a target node.")
+        self._connect_from = None; self._status.set("连接模式：先选择来源节点，再选择目标节点。")
 
     def _press(self, node_id: str, event):
         if self._connect_from is not None:
             if self._connect_from == node_id: return
             try:
                 self._snapshot = self._model.connect(self._draft_id, self._connect_from, node_id)
-                self._status.set("Control edge added."); self._connect_from = None; self._render()
+                self._status.set("已添加控制连接。"); self._connect_from = None; self._render()
             except Exception as error:
                 self._connect_from = None; messagebox.showerror("Cannot connect nodes", str(error), parent=self._window)
             return
-        if self._status.get().startswith("Connect mode"):
-            self._connect_from = node_id; self._status.set("Select a target node."); return
+        if self._status.get().startswith("连接模式"):
+            self._connect_from = node_id; self._status.set("请选择目标节点。"); return
         node = next(item for item in self._snapshot.nodes if item["id"] == node_id)
         self._drag = (node_id, event.x - node["x"], event.y - node["y"])
 
@@ -166,12 +210,12 @@ class NativeFlowDraftEditor:
         node_id, offset_x, offset_y = self._drag; self._drag = None
         try:
             self._snapshot = self._model.move_node(self._draft_id, node_id, event.x - offset_x, event.y - offset_y)
-            self._status.set("Layout saved."); self._render()
+            self._status.set("布局已保存。"); self._render()
         except Exception as error: messagebox.showerror("Cannot move node", str(error), parent=self._window); self._render()
 
     def _validate(self):
         report = self._model.validate(self._draft_id)
-        self._status.set(f"Draft validation: {report['status']}.")
+        self._status.set(f"草稿验证：{report['status']}。")
         if report["status"] != "valid":
             messagebox.showwarning("FlowDraft validation", "Add or repair required controlled connections before compiling.", parent=self._window)
 
