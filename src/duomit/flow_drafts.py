@@ -178,6 +178,11 @@ class SqliteFlowDraftStore:
                                  digest({"nodes": [{"id": node["id"], "x": node["x"], "y": node["y"]} for node in nodes]}),
                                  tuple(nodes), tuple(edges))
 
+    def get_snapshot(self, context: OrganizationContext, draft_id: str) -> FlowDraftSnapshot:
+        """Read a draft projection; callers cannot mutate rows through it."""
+        with self._transaction():
+            return self._snapshot(context, draft_id)
+
     @staticmethod
     def _layout(x: int, y: int):
         require(type(x) is int and -100000 <= x <= 100000 and type(y) is int and -100000 <= y <= 100000,
@@ -270,13 +275,28 @@ class SqliteFlowDraftStore:
     def validate(self, context: OrganizationContext, draft_id: str) -> dict:
         with self._transaction():
             snapshot = self._snapshot(context, draft_id)
-            bound = {(edge["to_node_id"], edge["to_port_id"]) for edge in snapshot.edges if edge["required"]}
-            missing = []
-            for node in snapshot.nodes:
-                template = self._catalog.get(node["template_id"], node["template_version"])
-                for port in template.input_ports:
-                    if port.required and (node["id"], port.port_id) not in bound:
-                        missing.append({"node_id": node["id"], "port_id": port.port_id})
+            missing = self._required_inputs_unbound(snapshot)
             return {"flow_draft_id": draft_id, "semantic_revision": snapshot.semantic_revision,
-                    "status": "valid" if not missing else "invalid", "required_inputs_unbound": missing,
+                    "status": "valid" if snapshot.nodes and not missing else "invalid", "required_inputs_unbound": missing,
                     "semantic_digest": snapshot.semantic_digest}
+
+    def validated_snapshot(self, context: OrganizationContext, draft_id: str,
+                           expected_semantic_digest: str) -> FlowDraftSnapshot:
+        """Pin validation and read to one transaction for compiler callers."""
+        with self._transaction():
+            snapshot = self._snapshot(context, draft_id)
+            if snapshot.semantic_digest != expected_semantic_digest:
+                raise DuomitError("FLOW_COMPILE_PIN_INVALID", "Flow draft semantic digest has changed")
+            if not snapshot.nodes or self._required_inputs_unbound(snapshot):
+                raise DuomitError("DECOMPOSITION_INVALID", "Flow draft must be valid before compilation")
+            return snapshot
+
+    def _required_inputs_unbound(self, snapshot: FlowDraftSnapshot) -> list[dict]:
+        bound = {(edge["to_node_id"], edge["to_port_id"]) for edge in snapshot.edges if edge["required"]}
+        missing = []
+        for node in snapshot.nodes:
+            template = self._catalog.get(node["template_id"], node["template_version"])
+            for port in template.input_ports:
+                if port.required and (node["id"], port.port_id) not in bound:
+                    missing.append({"node_id": node["id"], "port_id": port.port_id})
+        return missing
