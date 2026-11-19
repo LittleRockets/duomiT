@@ -123,6 +123,7 @@ python -m duomit --identity-database identities.sqlite3 --config-database settin
 | **本机工作区** | Project 与 Task 的本地持久化、组织归属校验与命令行录入参考路径 |
 | **任务修订** | 不可变 TaskRevision、交付物与 blocking 验收门槛、乐观并发校验；供后续 Builder 固定输入 |
 | **Need 域入口** | 以固定 TaskRevision 校验需求候选、验收覆盖与 blocking 未知项；候选不具备状态或执行权限 |
+| **Workflow 域入口** | 从充分的 Need 推导可重放 ProcessSpecification，并把 blocking 验收固定为质量门；不拥有运行状态 |
 | **任务材料** | 本机不可变 Artifact、精确版本 ResourceGrant、撤权复核与 ContextPackage 引用边界 |
 | **本机任务视图** | 回环地址上的只读 Project/Task 壳层与任务节点投影；不触发执行或模型调用 |
 | **流程草稿核心** | 受控内置节点目录、版本化语义/布局修订、方向与无环校验，以及固定摘要的 ProcessIntent 映射；尚不生成或执行计划 |
