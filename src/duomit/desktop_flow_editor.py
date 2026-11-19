@@ -135,7 +135,8 @@ class NativeFlowDraftEditor:
         ttk.Label(toolbar, text="流程草稿", style="PageTitle.TLabel").pack(side="left", padx=(0, 20))
         for label in TEMPLATES:
             ttk.Button(toolbar, text=f"添加 {label}", style="Secondary.TButton", command=lambda item=label: self._add(item)).pack(side="left", padx=(0, 6))
-        ttk.Button(toolbar, text="连接节点", style="Secondary.TButton", command=self._start_connect).pack(side="left", padx=(12, 6))
+        ttk.Button(toolbar, text="连接节点", style="Secondary.TButton", command=self._open_connection_dialog).pack(side="left", padx=(12, 6))
+        ttk.Button(toolbar, text="画布连接", style="Quiet.TButton", command=self._start_connect).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="自动布局", style="Secondary.TButton", command=self._auto_layout).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="验证", style="Secondary.TButton", command=self._validate).pack(side="left")
         ttk.Button(toolbar, text="审阅 ProcessIntent", style="Primary.TButton", command=self._review_intent).pack(side="right")
@@ -184,6 +185,39 @@ class NativeFlowDraftEditor:
 
     def _start_connect(self):
         self._connect_from = None; self._status.set("连接模式：先选择来源节点，再选择目标节点。")
+
+    def _open_connection_dialog(self):
+        if len(self._snapshot.nodes) < 2:
+            messagebox.showinfo("至少需要两个节点", "先添加两个受控节点，再建立流程连接。", parent=self._window)
+            return
+        dialog = tk.Toplevel(self._window)
+        dialog.title("连接流程节点")
+        dialog.transient(self._window); dialog.grab_set(); dialog.resizable(False, False)
+        body = ttk.Frame(dialog, style="Surface.TFrame", padding=20); body.pack(fill="both", expand=True)
+        ttk.Label(body, text="建立控制连接", style="PageTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(body, text="来源节点必须有输出端口，目标节点必须有输入端口。", style="Muted.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 16))
+        items = tuple(f"{node['display_name']} · {self._domain(node)} · {node['id'][:8]}" for node in self._snapshot.nodes)
+        lookup = {label: node["id"] for label, node in zip(items, self._snapshot.nodes)}
+        ttk.Label(body, text="来源节点").grid(row=2, column=0, sticky="w", pady=(0, 5))
+        source = ttk.Combobox(body, values=items, state="readonly", width=44)
+        source.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 14)); source.current(0)
+        ttk.Label(body, text="目标节点").grid(row=4, column=0, sticky="w", pady=(0, 5))
+        target = ttk.Combobox(body, values=items, state="readonly", width=44)
+        target.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(0, 18)); target.current(1)
+
+        def submit():
+            if source.get() == target.get():
+                messagebox.showerror("无法连接节点", "来源节点和目标节点必须不同。", parent=dialog)
+                return
+            try:
+                self._snapshot = self._model.connect(self._draft_id, lookup[source.get()], lookup[target.get()])
+                dialog.destroy(); self._status.set("已添加控制连接。"); self._render()
+            except Exception as error:
+                messagebox.showerror("无法连接节点", f"{error}\n请选择一个具有兼容端口的来源和目标。", parent=dialog)
+
+        ttk.Button(body, text="取消", style="Secondary.TButton", command=dialog.destroy).grid(row=6, column=0, sticky="w")
+        ttk.Button(body, text="建立连接", style="Primary.TButton", command=submit).grid(row=6, column=1, sticky="e")
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
 
     def _press(self, node_id: str, event):
         if self._connect_from is not None:
