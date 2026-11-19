@@ -48,6 +48,12 @@ class FlowDraftTests(unittest.TestCase):
         with self.assertRaises(DuomitError):
             self.store.validate(self.other, draft.flow_draft_id)
 
+    def test_owner_can_list_only_its_own_drafts(self):
+        first = self.store.create(self.context, "taskone", "First")
+        self.store.create(self.context, "tasktwo", "Second")
+        self.assertEqual(tuple(item.flow_draft_id for item in self.store.list_for_owner(self.context, "taskone")),
+                         (first.flow_draft_id,))
+
 
 if __name__ == "__main__":
     unittest.main()

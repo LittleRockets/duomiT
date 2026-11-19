@@ -183,6 +183,15 @@ class SqliteFlowDraftStore:
         with self._transaction():
             return self._snapshot(context, draft_id)
 
+    def list_for_owner(self, context: OrganizationContext, owner_ref: str) -> tuple[FlowDraftSnapshot, ...]:
+        """List only the caller's process-intent drafts for one explicit owner reference."""
+        identifier(owner_ref)
+        with self._transaction():
+            rows = self._db.execute(
+                "SELECT id FROM flow_drafts WHERE organization_id=? AND owner_membership_id=? AND owner_ref=? ORDER BY rowid",
+                (context.organization_id, context.membership_id, owner_ref)).fetchall()
+            return tuple(self._snapshot(context, row["id"]) for row in rows)
+
     def get_template(self, template_id: str, template_version: str) -> FlowNodeTemplate:
         """Expose template metadata without exposing the storage adapter internals."""
         return self._catalog.get(template_id, template_version)

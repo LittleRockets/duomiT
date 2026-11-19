@@ -34,6 +34,11 @@ class NativeFlowViewModel:
         try: return store.get_snapshot(self._context, draft_id)
         finally: store.close()
 
+    def list_for_task(self, task_id: str) -> tuple[FlowDraftSnapshot, ...]:
+        store = SqliteFlowDraftStore(self._database)
+        try: return store.list_for_owner(self._context, task_id)
+        finally: store.close()
+
     def add_node(self, draft_id: str, label: str) -> FlowDraftSnapshot:
         template_id, version = TEMPLATES[label]
         store = SqliteFlowDraftStore(self._database)

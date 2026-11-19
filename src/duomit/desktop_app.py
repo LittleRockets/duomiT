@@ -134,6 +134,7 @@ class DuomitDesktopApp:
         self._subtitle = tk.StringVar()
         ttk.Label(header, textvariable=self._subtitle, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         ttk.Button(header, text="Refresh", command=self.refresh).pack(anchor="e", side="right")
+        ttk.Button(header, text="Flows", command=self._open_flow_list).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="New Flow", command=self._open_flow_editor).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="New Task", command=self._open_task_dialog).pack(anchor="e", side="right", padx=(0, 8))
         ttk.Button(header, text="Edit Task", command=self._open_task_edit_dialog).pack(anchor="e", side="right", padx=(0, 8))
@@ -264,6 +265,39 @@ class DuomitDesktopApp:
             NativeFlowDraftEditor(self._root, flow, draft.flow_draft_id)
         except Exception as error:
             messagebox.showerror("Cannot create FlowDraft", str(error), parent=self._root)
+
+    def _open_flow_list(self):
+        selected = self._tree.selection()
+        if not selected:
+            messagebox.showinfo("Select a Task", "Select a local Task before viewing its FlowDrafts.", parent=self._root)
+            return
+        flow = NativeFlowViewModel(self._model.database, self._model.context)
+        try:
+            drafts = flow.list_for_task(selected[0])
+        except Exception as error:
+            messagebox.showerror("Cannot list FlowDrafts", str(error), parent=self._root)
+            return
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Task FlowDrafts")
+        dialog.transient(self._root); dialog.geometry("640x390")
+        body = ttk.Frame(dialog, padding=18); body.pack(fill="both", expand=True)
+        ttk.Label(body, text="Controlled process-intent drafts", font=("Segoe UI", 14, "bold")).pack(anchor="w")
+        table = ttk.Treeview(body, columns=("name", "semantic", "layout", "nodes"), show="headings", height=9)
+        for key, label, width in (("name", "Name", 220), ("semantic", "Semantic rev.", 110), ("layout", "Layout rev.", 100), ("nodes", "Nodes", 70)):
+            table.heading(key, text=label); table.column(key, width=width, minwidth=65)
+        for draft in drafts:
+            table.insert("", "end", iid=draft.flow_draft_id,
+                         values=(draft.name, draft.semantic_revision, draft.layout_revision, len(draft.nodes)))
+        table.pack(fill="both", expand=True, pady=(10, 12))
+        if not drafts:
+            ttk.Label(body, text="No FlowDraft exists for this Task yet. Create one explicitly with New Flow.").pack(anchor="w")
+
+        def open_selected():
+            chosen = table.selection()
+            if chosen:
+                NativeFlowDraftEditor(self._root, flow, chosen[0])
+
+        ttk.Button(body, text="Open selected FlowDraft", command=open_selected).pack(anchor="e")
 
     def _open_task_edit_dialog(self):
         selected = self._tree.selection()
