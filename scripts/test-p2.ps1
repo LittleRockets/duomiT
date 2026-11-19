@@ -33,4 +33,4 @@ python -m unittest discover -s (Join-Path $root "tests") -p "test_desktop_shell.
 Write-Host "P2 local test completed." -ForegroundColor Green
 Write-Host "Workspace database: $database"
 Write-Host "Open the read-only dashboard with:" -ForegroundColor Cyan
-Write-Host "`$env:PYTHONPATH = `"$root\src`"; python -m duomit --desktop-reference-workspace-database `"$database`" --desktop-project `"$($project.project_id)`""
+Write-Host "powershell -ExecutionPolicy Bypass -File .\scripts\start-p2-dashboard.ps1"
