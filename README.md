@@ -62,7 +62,7 @@ The command uses a deterministic offline reference model and does not require an
 | **Node catalog and proposal review** | Immutable NodeDescriptor versions and review-only Proposal creation from pinned flow and descriptor inputs. |
 | **Need, Workflow, Build, and Run** | Validated domain handoffs derive replayable process, delivery, readiness, and observability specifications; cross-task mixing is rejected and no executable work is created. |
 | **Builder LLM boundary** | Provider API output is decoded only as a strict Need candidate and revalidated against TaskRevision; it cannot carry authority, tools, or state changes. |
-| **Native Desktop shell** | A native, accessible local Project/Task workspace with a shared component system, actionable empty states, selection-preserving refresh, explicit local-save feedback, and deterministic non-drag FlowDraft layout and connection controls. It atomically creates and revises immutable task-planning versions, reopens task-scoped controlled FlowDrafts, and previews pinned ProcessIntent. Neither surface executes work, calls models, nor grants access. |
+| **Native Desktop shell** | A native, accessible local Project/Task workspace with a shared component system, actionable empty states, selection-preserving refresh, explicit local-save feedback, deterministic non-drag FlowDraft controls, and a manual Need review entry bound to the current TaskRevision. Neither surface executes work, calls models, nor grants access. |
 
 ## Model Connectivity
 

@@ -45,6 +45,13 @@ class NativeDesktopViewTests(unittest.TestCase):
         after = model.load_tasks()[0]
         self.assertEqual((revised.number, after.planning_revision.number, after.goal), (2, 2, "Revised goal"))
 
+    def test_native_view_model_creates_manual_need_bound_to_current_task_revision(self):
+        model = NativeTaskViewModel(self.path, self.context, "placeholder")
+        model.create_project("New project")
+        task = model.create_task("New task", "Goal", "Deliverable", ("Review",))
+        need = model.create_manual_need(task, "A reviewed deliverable")
+        self.assertEqual(need.completeness, "sufficient")
+
     def test_reselecting_same_task_does_not_reenter_tree_selection(self):
         class Tree:
             def __init__(self): self.selected = (); self.set_count = 0

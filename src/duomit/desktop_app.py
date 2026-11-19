@@ -15,6 +15,7 @@ from .foundation import OrganizationContext
 from .desktop_flow_editor import NativeFlowDraftEditor, NativeFlowViewModel
 from .desktop_design import DesktopTokens, configure_desktop_style, status_palette
 from .task_revisions import AcceptanceCriterion, SqliteTaskRevisionStore, TaskRevision
+from .need_records import NeedCandidate, NeedOutcome, NeedUnknown, SqliteNeedStore
 from .workspace import LocalWorkspace
 
 
@@ -97,6 +98,21 @@ class NativeTaskViewModel:
         finally:
             planning.close()
 
+    def create_manual_need(self, workspace_task_id: str, outcome: str, questions: tuple[str, ...] = ()):
+        planning = SqliteTaskRevisionStore(self._database)
+        needs = SqliteNeedStore(self._database)
+        try:
+            task = planning.get_current_for_workspace_task(self._context, workspace_task_id)
+            if task is None:
+                raise ValueError("This Task has no versioned planning input.")
+            criteria = tuple(item.criterion_id for item in task.acceptance if item.blocking)
+            candidate = NeedCandidate((NeedOutcome("outcome1", outcome, criteria),),
+                                      tuple(NeedUnknown(f"question{index + 1}", item, True)
+                                            for index, item in enumerate(questions) if item.strip()))
+            return needs.create(self._context, task, candidate)
+        finally:
+            needs.close(); planning.close()
+
 
 class DuomitDesktopApp:
     """Read-only native Project/Task shell. All mutations remain explicit ports."""
@@ -167,6 +183,7 @@ class DuomitDesktopApp:
         toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         ttk.Label(toolbar, text="任务图", style="Section.TLabel").pack(side="left")
         ttk.Button(toolbar, text="编辑任务", style="Secondary.TButton", command=self._open_task_edit_dialog).pack(side="right")
+        ttk.Button(toolbar, text="定义 Need", style="Secondary.TButton", command=self._open_need_dialog).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="查看流程", style="Secondary.TButton", command=self._open_flow_list).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="新建流程", style="Quiet.TButton", command=self._open_flow_editor).pack(side="right", padx=(0, 8))
         self._canvas = tk.Canvas(right, bg=DesktopTokens.canvas, highlightthickness=1, highlightbackground=DesktopTokens.line)
@@ -380,6 +397,37 @@ class DuomitDesktopApp:
                 messagebox.showerror("Cannot revise Task", str(error), parent=dialog)
 
         ttk.Button(body, text="创建新版本", style="Primary.TButton", command=submit).grid(row=11, column=0, sticky="e")
+
+    def _open_need_dialog(self):
+        selected = self._tree.selection()
+        task = next((item for item in self._tasks if selected and item.task_id == selected[0]), None)
+        if task is None or task.planning_revision is None:
+            messagebox.showinfo("需要版本化任务", "请先选择一个已完成规划输入的任务。", parent=self._root)
+            return
+        dialog = tk.Toplevel(self._root)
+        dialog.title("定义 Need")
+        dialog.transient(self._root); dialog.grab_set(); dialog.geometry("580x470")
+        body = ttk.Frame(dialog, style="Surface.TFrame", padding=20); body.pack(fill="both", expand=True)
+        body.columnconfigure(0, weight=1); body.rowconfigure(3, weight=1)
+        acceptance = "\n".join(f"• {item.statement}" for item in task.planning_revision.acceptance if item.blocking)
+        ttk.Label(body, text="定义可审阅的 Need", style="PageTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(body, text=f"该记录绑定 TaskRevision {task.planning_revision.number}，并覆盖以下阻塞验收：\n{acceptance}", style="Muted.TLabel", justify="left", wraplength=520).grid(row=1, column=0, sticky="w", pady=(6, 16))
+        ttk.Label(body, text="预期结果 *").grid(row=2, column=0, sticky="w")
+        outcome = tk.Text(body, height=5, bg=DesktopTokens.surface, fg=DesktopTokens.ink, insertbackground=DesktopTokens.ink, highlightthickness=1, highlightbackground=DesktopTokens.line, relief="flat", padx=8, pady=8)
+        outcome.grid(row=3, column=0, sticky="nsew", pady=(6, 14))
+        ttk.Label(body, text="待澄清问题（可选，每行一项；填写后会阻止下游规划）").grid(row=4, column=0, sticky="w")
+        questions = tk.Text(body, height=3, bg=DesktopTokens.surface, fg=DesktopTokens.ink, insertbackground=DesktopTokens.ink, highlightthickness=1, highlightbackground=DesktopTokens.line, relief="flat", padx=8, pady=8)
+        questions.grid(row=5, column=0, sticky="ew", pady=(6, 18))
+
+        def submit():
+            try:
+                record = self._model.create_manual_need(task.task_id, outcome.get("1.0", "end-1c"), tuple(questions.get("1.0", "end-1c").splitlines()))
+                dialog.destroy(); self._announce(f"Need 已保存：{record.completeness}。")
+            except Exception as error:
+                messagebox.showerror("无法保存 Need", str(error), parent=dialog)
+
+        ttk.Button(body, text="取消", style="Secondary.TButton", command=dialog.destroy).grid(row=6, column=0, sticky="w")
+        ttk.Button(body, text="保存 Need", style="Primary.TButton", command=submit).grid(row=6, column=0, sticky="e")
 
     def run(self):
         self._root.mainloop()

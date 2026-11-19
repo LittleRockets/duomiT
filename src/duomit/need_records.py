@@ -119,6 +119,13 @@ class SqliteNeedStore:
                               canonical_json(payload), content_digest))
             return self._from_body(need_id, payload, content_digest)
 
+    def list_for_task_revision(self, context: OrganizationContext, task_revision_id: str) -> tuple[NeedRecord, ...]:
+        identifier(task_revision_id)
+        rows = self._db.execute(
+            "SELECT id,body_json,content_digest FROM need_records WHERE organization_id=? AND owner_membership_id=? AND task_revision_id=? ORDER BY rowid",
+            (context.organization_id, context.membership_id, task_revision_id)).fetchall()
+        return tuple(self._from_body(row["id"], json.loads(row["body_json"]), row["content_digest"]) for row in rows)
+
     @staticmethod
     def _from_body(need_id: str, body: dict, content_digest: str) -> NeedRecord:
         return NeedRecord(need_id, body["task_revision_id"],
