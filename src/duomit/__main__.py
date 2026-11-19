@@ -17,6 +17,8 @@ from .model_access import BuilderBinding, ModelBroker, ModelMaterial, ReferenceD
 from .models import IndependentModel, SequentialModel
 from .planning import ReferencePlanner
 from .registry import Capability, DomainRegistry
+from .foundation import OrganizationContext
+from .workspace import LocalWorkspace
 
 
 def reference_components(model: str = "sequential", context: RequestContext | None = None):
@@ -52,7 +54,17 @@ def main():
     parser.add_argument("--save-config", action="store_true", help="Save explicit API selections without calling models")
     parser.add_argument("--identity-database", help="Validate a local access token and derive the user identity")
     parser.add_argument("--token-env", default="DUOMIT_ACCESS_TOKEN", help="Environment variable containing a local access token")
+    parser.add_argument("--workspace-database", help="Local Project and Task reference workspace database")
+    parser.add_argument("--workspace-project", help="Create a Project or address an existing Project ID")
+    parser.add_argument("--workspace-create-project", action="store_true", help="Create --workspace-project as a Project name")
+    parser.add_argument("--workspace-task", help="Create a Task title in the addressed Project")
+    parser.add_argument("--workspace-goal", help="Task goal used with --workspace-task")
     args = parser.parse_args()
+    if args.workspace_database:
+        if not args.workspace_project or bool(args.workspace_task) != bool(args.workspace_goal) or (args.workspace_task and args.workspace_create_project):
+            parser.error("workspace mode requires --workspace-project and both --workspace-task/--workspace-goal when creating a task")
+        _workspace(args)
+        return
     if bool(args.provider) != bool(args.model_id) or (args.api_key_env and not args.provider):
         parser.error("--provider and --model-id must be configured together")
     if bool(args.assistant_provider) != bool(args.assistant_model_id) or (
@@ -136,6 +148,25 @@ def _execute(args, context, planner, services):
         print(json.dumps(snapshot, indent=2))
     finally:
         runtime.close()
+
+
+def _workspace(args):
+    context = OrganizationContext("local-org", "local-member", "local-member", "local-device",
+                                  "local-session", "local-request", "local-trace", 1)
+    workspace = LocalWorkspace(args.workspace_database)
+    try:
+        project_id = args.workspace_project
+        if args.workspace_create_project:
+            project_id = workspace.create_project(context, project_id)
+            print(json.dumps({"project_id": project_id, "created": True}, indent=2))
+            return
+        if not args.workspace_task:
+            print(json.dumps({"project_id": project_id, "tasks": workspace.list_tasks(context, project_id)}, indent=2))
+            return
+        task_id = workspace.create_task(context, project_id, args.workspace_task, args.workspace_goal)
+        print(json.dumps({"project_id": project_id, "task_id": task_id, "created": True}, indent=2))
+    finally:
+        workspace.close()
 
 
 if __name__ == "__main__":
