@@ -125,6 +125,7 @@ python -m duomit --identity-database identities.sqlite3 --config-database settin
 | **本机任务视图** | 回环地址上的只读 Project/Task 壳层与任务节点投影；不触发执行或模型调用 |
 | **流程草稿核心** | 受控内置节点目录、版本化语义/布局修订、方向与无环校验，以及固定摘要的 ProcessIntent 映射；尚不生成或执行计划 |
 | **节点目录** | 组织范围内的不可变 NodeDescriptor 版本与摘要校验；仅声明能力兼容性，不安装或运行节点 |
+| **提案审阅基础** | 固定 FlowCompilation 与 NodeDescriptor 版本生成可审阅 Proposal；不创建 WorkUnit 或运行实例 |
 
 ## 当前状态
 
