@@ -51,6 +51,7 @@ class DuomitDesktopApp:
     def __init__(self, view_model: NativeTaskViewModel):
         self._model = view_model
         self._tasks: tuple[TaskNode, ...] = ()
+        self._selected_task_id: str | None = None
         self._root = tk.Tk()
         self._root.title("duomiT Desktop · Local-first Builder")
         self._root.geometry("1180x760")
@@ -101,6 +102,7 @@ class DuomitDesktopApp:
 
     def refresh(self):
         self._tasks = self._model.load_tasks()
+        self._selected_task_id = None
         self._tree.delete(*self._tree.get_children())
         for task in self._tasks:
             self._tree.insert("", "end", iid=task.task_id, text=task.title, values=(task.state,))
@@ -128,7 +130,11 @@ class DuomitDesktopApp:
     def _show_task(self, task_id: str):
         task = next((item for item in self._tasks if item.task_id == task_id), None)
         if task is None: return
-        self._tree.selection_set(task_id); self._tree.focus(task_id)
+        if self._selected_task_id != task_id:
+            self._selected_task_id = task_id
+            if task_id not in self._tree.selection():
+                self._tree.selection_set(task_id)
+            self._tree.focus(task_id)
         self._detail.set(f"{task.title} · {task.state} · revision {task.revision}\n{task.goal}\nNo Proposal, WorkUnit, Run, or external operation exists for this draft.")
 
     def run(self):
