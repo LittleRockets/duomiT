@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from .foundation import OrganizationContext
 from .workspace import LocalWorkspace
@@ -43,6 +43,25 @@ class NativeTaskViewModel:
         return tuple(TaskNode(task["id"], task["title"], task["state"], task["goal"], task["revision"],
                               44 + (index % 3) * 244, 54 + (index // 3) * 150)
                      for index, task in enumerate(tasks))
+
+    @property
+    def project_id(self) -> str:
+        return self._project_id
+
+    def create_project(self, name: str) -> str:
+        workspace = LocalWorkspace(self._database)
+        try:
+            self._project_id = workspace.create_project(self._context, name)
+        finally:
+            workspace.close()
+        return self._project_id
+
+    def create_task(self, title: str, goal: str) -> str:
+        workspace = LocalWorkspace(self._database)
+        try:
+            return workspace.create_task(self._context, self._project_id, title, goal)
+        finally:
+            workspace.close()
 
 
 class DuomitDesktopApp:
@@ -79,8 +98,11 @@ class DuomitDesktopApp:
         header = ttk.Frame(root, style="App.TFrame", padding=(26, 22, 26, 15))
         header.grid(row=0, column=0, columnspan=2, sticky="ew")
         ttk.Label(header, text="duomiT Desktop", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(header, text="Project / Task · native read-only reference shell", style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
+        self._subtitle = tk.StringVar()
+        ttk.Label(header, textvariable=self._subtitle, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         ttk.Button(header, text="Refresh", command=self.refresh).pack(anchor="e", side="right")
+        ttk.Button(header, text="New Task", command=self._open_task_dialog).pack(anchor="e", side="right", padx=(0, 8))
+        ttk.Button(header, text="New Project", command=self._open_project_dialog).pack(anchor="e", side="right", padx=(0, 8))
 
         left = ttk.Frame(root, style="Panel.TFrame", padding=16)
         left.grid(row=1, column=0, sticky="nsew", padx=(26, 12), pady=(0, 26))
@@ -103,6 +125,7 @@ class DuomitDesktopApp:
     def refresh(self):
         self._tasks = self._model.load_tasks()
         self._selected_task_id = None
+        self._subtitle.set(f"Project {self._model.project_id[:12]} · native local workspace")
         self._tree.delete(*self._tree.get_children())
         for task in self._tasks:
             self._tree.insert("", "end", iid=task.task_id, text=task.title, values=(task.state,))
@@ -136,6 +159,45 @@ class DuomitDesktopApp:
                 self._tree.selection_set(task_id)
             self._tree.focus(task_id)
         self._detail.set(f"{task.title} · {task.state} · revision {task.revision}\n{task.goal}\nNo Proposal, WorkUnit, Run, or external operation exists for this draft.")
+
+    def _open_project_dialog(self):
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Create Project")
+        dialog.transient(self._root); dialog.grab_set(); dialog.resizable(False, False)
+        body = ttk.Frame(dialog, padding=20); body.pack(fill="both", expand=True)
+        ttk.Label(body, text="Project name").grid(row=0, column=0, sticky="w")
+        name = ttk.Entry(body, width=42); name.grid(row=1, column=0, pady=(6, 16)); name.focus_set()
+
+        def submit():
+            try:
+                self._model.create_project(name.get())
+                dialog.destroy(); self.refresh()
+            except Exception as error:
+                messagebox.showerror("Cannot create Project", str(error), parent=dialog)
+
+        ttk.Button(body, text="Create", command=submit).grid(row=2, column=0, sticky="e")
+        dialog.bind("<Return>", lambda _event: submit())
+
+    def _open_task_dialog(self):
+        dialog = tk.Toplevel(self._root)
+        dialog.title("Create Task")
+        dialog.transient(self._root); dialog.grab_set(); dialog.geometry("520x360")
+        body = ttk.Frame(dialog, padding=20); body.pack(fill="both", expand=True)
+        body.columnconfigure(0, weight=1); body.rowconfigure(3, weight=1)
+        ttk.Label(body, text="Task title").grid(row=0, column=0, sticky="w")
+        title = ttk.Entry(body); title.grid(row=1, column=0, sticky="ew", pady=(6, 14)); title.focus_set()
+        ttk.Label(body, text="Goal").grid(row=2, column=0, sticky="w")
+        goal = tk.Text(body, height=9, bg="#102235", fg="#edf4fc", insertbackground="#edf4fc", relief="flat", padx=8, pady=8)
+        goal.grid(row=3, column=0, sticky="nsew", pady=(6, 16))
+
+        def submit():
+            try:
+                self._model.create_task(title.get(), goal.get("1.0", "end-1c"))
+                dialog.destroy(); self.refresh()
+            except Exception as error:
+                messagebox.showerror("Cannot create Task", str(error), parent=dialog)
+
+        ttk.Button(body, text="Create draft", command=submit).grid(row=4, column=0, sticky="e")
 
     def run(self):
         self._root.mainloop()

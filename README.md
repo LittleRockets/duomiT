@@ -62,7 +62,7 @@ The command uses a deterministic offline reference model and does not require an
 | **Node catalog and proposal review** | Immutable NodeDescriptor versions and review-only Proposal creation from pinned flow and descriptor inputs. |
 | **Need, Workflow, Build, and Run** | Validated domain handoffs derive replayable process, delivery, readiness, and observability specifications; cross-task mixing is rejected and no executable work is created. |
 | **Builder LLM boundary** | Provider API output is decoded only as a strict Need candidate and revalidated against TaskRevision; it cannot carry authority, tools, or state changes. |
-| **Native Desktop shell** | A native Project/Task shell with a local task graph; it does not execute tasks, call models, or grant access. |
+| **Native Desktop shell** | A native local Project/Task creation shell with a task graph; new tasks remain drafts and do not execute, call models, or grant access. |
 
 ## Model Connectivity
 

@@ -26,6 +26,13 @@ class NativeDesktopViewTests(unittest.TestCase):
         self.assertEqual(nodes[0].task_id, task)
         self.assertEqual((nodes[0].x, nodes[0].y), (44, 54))
 
+    def test_native_view_model_creates_project_and_task_through_workspace_boundary(self):
+        model = NativeTaskViewModel(self.path, self.context, "placeholder")
+        project = model.create_project("New project")
+        task = model.create_task("New task", "Create from native desktop")
+        self.assertEqual(model.project_id, project)
+        self.assertEqual(model.load_tasks()[0].task_id, task)
+
     def test_reselecting_same_task_does_not_reenter_tree_selection(self):
         class Tree:
             def __init__(self): self.selected = (); self.set_count = 0
