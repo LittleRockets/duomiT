@@ -105,6 +105,7 @@ class DuomitDesktopApp:
         self._model = view_model
         self._tasks: tuple[TaskNode, ...] = ()
         self._selected_task_id: str | None = None
+        self._feedback_after_id: str | None = None
         self._root = tk.Tk()
         self._root.title("duomiT · 本机工作台")
         self._root.geometry("1280x800")
@@ -140,6 +141,9 @@ class DuomitDesktopApp:
         ttk.Label(header, text="任务工作台", style="PageTitle.TLabel").pack(anchor="w")
         self._subtitle = tk.StringVar()
         ttk.Label(header, textvariable=self._subtitle, style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
+        self._feedback = tk.StringVar(value="")
+        self._feedback_label = ttk.Label(header, textvariable=self._feedback, style="Muted.TLabel", wraplength=520)
+        self._feedback_label.pack(anchor="w", pady=(4, 0))
         ttk.Button(header, text="新建版本化任务", style="Primary.TButton", command=self._open_task_dialog).pack(anchor="e", side="right")
         ttk.Button(header, text="刷新", style="Secondary.TButton", command=self.refresh).pack(anchor="e", side="right", padx=(0, 8))
 
@@ -173,7 +177,14 @@ class DuomitDesktopApp:
         ttk.Label(detail, text="检查器", style="Section.TLabel").pack(anchor="w")
         ttk.Label(detail, textvariable=self._detail, style="Muted.TLabel", wraplength=760, justify="left").pack(anchor="w", pady=(5, 0))
 
+    def _announce(self, message: str):
+        self._feedback.set(message)
+        if self._feedback_after_id is not None:
+            self._root.after_cancel(self._feedback_after_id)
+        self._feedback_after_id = self._root.after(5000, lambda: self._feedback.set(""))
+
     def refresh(self):
+        previous = self._selected_task_id
         self._tasks = self._model.load_tasks()
         self._selected_task_id = None
         self._subtitle.set(f"Project {self._model.project_id[:12]} · native local workspace")
@@ -181,14 +192,19 @@ class DuomitDesktopApp:
         for task in self._tasks:
             self._tree.insert("", "end", iid=task.task_id, text=task.title, values=(task.state,))
         self._draw_graph()
-        if not self._tasks:
+        if previous and any(item.task_id == previous for item in self._tasks):
+            self._show_task(previous)
+        elif not self._tasks:
             self._detail.set("This Project has no tasks yet. Create a versioned task through the local planning boundary.")
 
     def _draw_graph(self):
         canvas = self._canvas; canvas.delete("all")
         if not self._tasks:
-            canvas.create_text(350, 180, text="尚无任务", fill=DesktopTokens.muted, font=(DesktopTokens.font, 15, "bold"))
-            canvas.create_text(350, 210, text="使用“新建版本化任务”开始组织工作。", fill=DesktopTokens.muted, font=(DesktopTokens.font, 10))
+            canvas.create_text(350, 180, text="尚无任务", fill=DesktopTokens.muted, font=(DesktopTokens.font, 15, "bold"), tags=("create-task",))
+            canvas.create_text(350, 210, text="新建一个版本化任务，定义目标、交付物与验收标准。", fill=DesktopTokens.muted, font=(DesktopTokens.font, 10), tags=("create-task",))
+            canvas.create_rectangle(276, 235, 424, 269, fill=DesktopTokens.primary, outline=DesktopTokens.primary, tags=("create-task",))
+            canvas.create_text(350, 252, text="新建版本化任务", fill="#FFFFFF", font=(DesktopTokens.font, 9, "bold"), tags=("create-task",))
+            canvas.tag_bind("create-task", "<Button-1>", lambda _event: self._open_task_dialog())
             return
         width = max(canvas.winfo_width(), 700)
         for x in range(0, width, 24):
@@ -239,7 +255,7 @@ class DuomitDesktopApp:
         def submit():
             try:
                 self._model.create_project(name.get())
-                dialog.destroy(); self.refresh()
+                dialog.destroy(); self.refresh(); self._announce("项目已创建。现在可新建版本化任务。")
             except Exception as error:
                 messagebox.showerror("Cannot create Project", str(error), parent=dialog)
 
@@ -267,10 +283,11 @@ class DuomitDesktopApp:
 
         def submit():
             try:
-                self._model.create_task(title.get(), goal.get("1.0", "end-1c"), deliverable.get(),
-                                        tuple(acceptance.get("1.0", "end-1c").splitlines()),
-                                        tuple(constraints.get().splitlines()))
-                dialog.destroy(); self.refresh()
+                task_id = self._model.create_task(title.get(), goal.get("1.0", "end-1c"), deliverable.get(),
+                                                   tuple(acceptance.get("1.0", "end-1c").splitlines()),
+                                                   tuple(constraints.get().splitlines()))
+                dialog.destroy(); self.refresh(); self._show_task(task_id)
+                self._announce("任务已创建，并已固定为规划版本 1。")
             except Exception as error:
                 messagebox.showerror("Cannot create Task", str(error), parent=dialog)
 
@@ -357,7 +374,8 @@ class DuomitDesktopApp:
                 self._model.revise_task(task.task_id, task.revision, title.get(), goal.get("1.0", "end-1c"),
                                         deliverable.get(), tuple(acceptance.get("1.0", "end-1c").splitlines()),
                                         tuple(constraints.get().splitlines()))
-                dialog.destroy(); self.refresh()
+                dialog.destroy(); self.refresh(); self._show_task(task.task_id)
+                self._announce(f"已创建规划版本 {revision.number + 1}；此前版本保持可追溯。")
             except Exception as error:
                 messagebox.showerror("Cannot revise Task", str(error), parent=dialog)
 
