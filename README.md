@@ -121,6 +121,7 @@ python -m duomit --identity-database identities.sqlite3 --config-database settin
 | **基础契约** | 组织请求上下文、不可变版本引用、脱敏事件、Schema 兼容性检查与持久化配置快照 |
 | **组织身份契约** | 成员、设备与会话持久化绑定；过期、暂停与撤销会阻断会话 |
 | **本机工作区** | Project 与 Task 的本地持久化、组织归属校验与命令行录入参考路径 |
+| **任务修订** | 不可变 TaskRevision、交付物与 blocking 验收门槛、乐观并发校验；供后续 Builder 固定输入 |
 | **任务材料** | 本机不可变 Artifact、精确版本 ResourceGrant、撤权复核与 ContextPackage 引用边界 |
 | **本机任务视图** | 回环地址上的只读 Project/Task 壳层与任务节点投影；不触发执行或模型调用 |
 | **流程草稿核心** | 受控内置节点目录、版本化语义/布局修订、方向与无环校验，以及固定摘要的 ProcessIntent 映射；尚不生成或执行计划 |
