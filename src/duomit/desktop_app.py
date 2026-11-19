@@ -16,6 +16,7 @@ from .desktop_flow_editor import NativeFlowDraftEditor, NativeFlowViewModel
 from .desktop_design import DesktopTokens, configure_desktop_style, status_palette
 from .task_revisions import AcceptanceCriterion, SqliteTaskRevisionStore, TaskRevision
 from .need_records import NeedCandidate, NeedOutcome, NeedUnknown, SqliteNeedStore
+from .workflow_specs import SqliteProcessSpecStore
 from .workspace import LocalWorkspace
 
 
@@ -113,6 +114,19 @@ class NativeTaskViewModel:
         finally:
             needs.close(); planning.close()
 
+    def derive_process(self, workspace_task_id: str):
+        planning = SqliteTaskRevisionStore(self._database)
+        needs = SqliteNeedStore(self._database)
+        processes = SqliteProcessSpecStore(self._database)
+        try:
+            task = planning.get_current_for_workspace_task(self._context, workspace_task_id)
+            if task is None: raise ValueError("This Task has no versioned planning input.")
+            records = needs.list_for_task_revision(self._context, task.task_revision_id)
+            if not records: raise ValueError("先定义 Need，再生成 Workflow 过程规格。")
+            return processes.derive(self._context, records[-1])
+        finally:
+            processes.close(); needs.close(); planning.close()
+
 
 class DuomitDesktopApp:
     """Read-only native Project/Task shell. All mutations remain explicit ports."""
@@ -183,6 +197,7 @@ class DuomitDesktopApp:
         toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         ttk.Label(toolbar, text="任务图", style="Section.TLabel").pack(side="left")
         ttk.Button(toolbar, text="编辑任务", style="Secondary.TButton", command=self._open_task_edit_dialog).pack(side="right")
+        ttk.Button(toolbar, text="生成 Workflow", style="Secondary.TButton", command=self._derive_workflow).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="定义 Need", style="Secondary.TButton", command=self._open_need_dialog).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="查看流程", style="Secondary.TButton", command=self._open_flow_list).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="新建流程", style="Quiet.TButton", command=self._open_flow_editor).pack(side="right", padx=(0, 8))
@@ -428,6 +443,18 @@ class DuomitDesktopApp:
 
         ttk.Button(body, text="取消", style="Secondary.TButton", command=dialog.destroy).grid(row=6, column=0, sticky="w")
         ttk.Button(body, text="保存 Need", style="Primary.TButton", command=submit).grid(row=6, column=0, sticky="e")
+
+    def _derive_workflow(self):
+        selected = self._tree.selection()
+        task = next((item for item in self._tasks if selected and item.task_id == selected[0]), None)
+        if task is None:
+            messagebox.showinfo("选择任务", "请选择任务后再生成 Workflow 过程规格。", parent=self._root); return
+        try:
+            process = self._model.derive_process(task.task_id)
+        except Exception as error:
+            messagebox.showwarning("暂不能生成 Workflow", f"{error}\n请完成 Need 的待澄清项后重试。", parent=self._root); return
+        messagebox.showinfo("Workflow 已生成", f"已生成可审阅的 ProcessSpecification。\n阶段：{len(process.stages)}\n质量门：{len(process.quality_gates)}\n不会创建运行或外部操作。", parent=self._root)
+        self._announce("Workflow 过程规格已生成，可继续审阅 Build/Run 输入。")
 
     def run(self):
         self._root.mainloop()

@@ -51,6 +51,7 @@ class NativeDesktopViewTests(unittest.TestCase):
         task = model.create_task("New task", "Goal", "Deliverable", ("Review",))
         need = model.create_manual_need(task, "A reviewed deliverable")
         self.assertEqual(need.completeness, "sufficient")
+        self.assertEqual(len(model.derive_process(task).quality_gates), 1)
 
     def test_reselecting_same_task_does_not_reenter_tree_selection(self):
         class Tree:
