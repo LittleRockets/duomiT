@@ -60,7 +60,7 @@ The command uses a deterministic offline reference model and does not require an
 | **Materials** | Immutable artifacts, exact-version ResourceGrant, revocation revalidation, and ContextPackage references. |
 | **Flow intent** | Controlled FlowDraft templates, independent semantic/layout revisions, directed acyclic edges, and pinned ProcessIntent mapping. |
 | **Node catalog and proposal review** | Immutable NodeDescriptor versions and review-only Proposal creation from pinned flow and descriptor inputs. |
-| **Need, Workflow, and Build** | Need candidates are validated against task acceptance; sufficient Need records derive replayable process specifications, delivery specifications, and blocking verification paths. |
+| **Need, Workflow, Build, and Run** | Validated domain handoffs derive replayable process, delivery, readiness, and observability specifications; they do not create executable work. |
 | **Local views** | Loopback-only read-only Project/Task and FlowDraft projections. They do not execute tasks, call models, or grant access. |
 
 ## Model Connectivity
