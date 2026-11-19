@@ -57,6 +57,9 @@ class SqliteTaskRevisionStore:
           CREATE TABLE IF NOT EXISTS task_revisions (
             id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES planning_tasks(id), number INTEGER NOT NULL,
             body_json TEXT NOT NULL, content_digest TEXT NOT NULL, UNIQUE(task_id,number));
+          CREATE TABLE IF NOT EXISTS workspace_task_revisions (
+            workspace_task_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES planning_tasks(id),
+            organization_id TEXT NOT NULL, owner_membership_id TEXT NOT NULL);
         """)
 
     def close(self):
@@ -147,3 +150,18 @@ class SqliteTaskRevisionStore:
             if digest(body) != row["content_digest"]:
                 raise DuomitError("MATERIAL_CORRUPT", "Task revision digest mismatch")
             return self._revision(body, row["content_digest"])
+
+    def link_workspace_task(self, context: OrganizationContext, workspace_task_id: str, task_id: str) -> None:
+        """Bind one local entry Task to its independent immutable planning Task."""
+        identifier(workspace_task_id)
+        self._task(context, task_id)
+        with self._transaction():
+            self._db.execute("INSERT INTO workspace_task_revisions VALUES (?,?,?,?)",
+                             (workspace_task_id, task_id, context.organization_id, context.membership_id))
+
+    def get_current_for_workspace_task(self, context: OrganizationContext, workspace_task_id: str) -> TaskRevision | None:
+        identifier(workspace_task_id)
+        row = self._db.execute(
+            "SELECT task_id FROM workspace_task_revisions WHERE workspace_task_id=? AND organization_id=? AND owner_membership_id=?",
+            (workspace_task_id, context.organization_id, context.membership_id)).fetchone()
+        return None if row is None else self.get_current(context, row["task_id"])

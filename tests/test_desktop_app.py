@@ -30,9 +30,11 @@ class NativeDesktopViewTests(unittest.TestCase):
     def test_native_view_model_creates_project_and_task_through_workspace_boundary(self):
         model = NativeTaskViewModel(self.path, self.context, "placeholder")
         project = model.create_project("New project")
-        task = model.create_task("New task", "Create from native desktop")
+        task = model.create_task("New task", "Create from native desktop", "A reviewed native task", ("Task is reviewed",))
         self.assertEqual(model.project_id, project)
-        self.assertEqual(model.load_tasks()[0].task_id, task)
+        node = model.load_tasks()[0]
+        self.assertEqual(node.task_id, task)
+        self.assertEqual(node.planning_revision.deliverable, "A reviewed native task")
 
     def test_reselecting_same_task_does_not_reenter_tree_selection(self):
         class Tree:
@@ -45,7 +47,7 @@ class NativeDesktopViewTests(unittest.TestCase):
             def set(self, _value): pass
 
         app = object.__new__(DuomitDesktopApp)
-        app._tasks = (TaskNode("taskone", "Task", "draft", "Goal", 1, 0, 0),)
+        app._tasks = (TaskNode("taskone", "Task", "draft", "Goal", 1, None, 0, 0),)
         app._selected_task_id = None
         app._tree = Tree()
         app._detail = Detail()

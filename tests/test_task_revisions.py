@@ -36,6 +36,12 @@ class TaskRevisionTests(unittest.TestCase):
         with self.assertRaises(DuomitError):
             self.store.create(self.context, "Report", "Prepare", "Deliverable", (AcceptanceCriterion("criterionone", "Optional", False),))
 
+    def test_local_workspace_task_can_reference_current_planning_revision(self):
+        task = self.store.create(self.context, "Report", "Prepare", "Deliverable", self.acceptance)
+        self.store.link_workspace_task(self.context, "workspacetask", task.task_id)
+        self.assertEqual(self.store.get_current_for_workspace_task(self.context, "workspacetask").task_id, task.task_id)
+        self.assertIsNone(self.store.get_current_for_workspace_task(self.context, "unlinkedtask"))
+
 
 if __name__ == "__main__":
     unittest.main()
