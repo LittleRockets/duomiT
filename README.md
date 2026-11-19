@@ -122,6 +122,7 @@ python -m duomit --identity-database identities.sqlite3 --config-database settin
 | **组织身份契约** | 成员、设备与会话持久化绑定；过期、暂停与撤销会阻断会话 |
 | **本机工作区** | Project 与 Task 的本地持久化、组织归属校验与命令行录入参考路径 |
 | **任务材料** | 本机不可变 Artifact、精确版本 ResourceGrant、撤权复核与 ContextPackage 引用边界 |
+| **本机任务视图** | 回环地址上的只读 Project/Task 壳层与任务节点投影；不触发执行或模型调用 |
 
 ## 当前状态
 

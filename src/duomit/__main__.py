@@ -18,6 +18,7 @@ from .models import IndependentModel, SequentialModel
 from .planning import ReferencePlanner
 from .registry import Capability, DomainRegistry
 from .foundation import OrganizationContext
+from .desktop_shell import serve_dashboard
 from .workspace import LocalWorkspace
 
 
@@ -59,7 +60,16 @@ def main():
     parser.add_argument("--workspace-create-project", action="store_true", help="Create --workspace-project as a Project name")
     parser.add_argument("--workspace-task", help="Create a Task title in the addressed Project")
     parser.add_argument("--workspace-goal", help="Task goal used with --workspace-task")
+    parser.add_argument("--desktop-reference-workspace-database",
+                        help="Run the loopback-only P2 read-only dashboard against a reference workspace")
+    parser.add_argument("--desktop-project", help="Project ID rendered by the P2 reference dashboard")
+    parser.add_argument("--desktop-port", type=int, default=8765, help="Loopback dashboard port (default: 8765)")
     args = parser.parse_args()
+    if args.desktop_reference_workspace_database:
+        if not args.desktop_project or not 0 < args.desktop_port <= 65535:
+            parser.error("desktop reference mode requires --desktop-project and a port from 1 to 65535")
+        _desktop_reference(args)
+        return
     if args.workspace_database:
         if not args.workspace_project or bool(args.workspace_task) != bool(args.workspace_goal) or (args.workspace_task and args.workspace_create_project):
             parser.error("workspace mode requires --workspace-project and both --workspace-task/--workspace-goal when creating a task")
@@ -167,6 +177,21 @@ def _workspace(args):
         print(json.dumps({"project_id": project_id, "task_id": task_id, "created": True}, indent=2))
     finally:
         workspace.close()
+
+
+def _desktop_reference(args):
+    """Explicit local test entry point; production identity is wired in a later P2 adapter."""
+    context = OrganizationContext("local-org", "local-member", "local-member", "local-device",
+                                  "local-session", "local-request", "local-trace", 1)
+    server = serve_dashboard(args.desktop_reference_workspace_database, context,
+                             args.desktop_project, port=args.desktop_port)
+    print(json.dumps({"url": f"http://127.0.0.1:{server.server_port}/", "mode": "read_only_reference"}))
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":

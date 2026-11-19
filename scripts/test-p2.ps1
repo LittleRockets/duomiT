@@ -25,8 +25,10 @@ python -m duomit `
   --workspace-database $database `
   --workspace-project $project.project_id
 
-Write-Host "Running the Artifact ownership boundary test..." -ForegroundColor Cyan
+Write-Host "Running P2 resource and desktop-boundary tests..." -ForegroundColor Cyan
 python -m unittest discover -s (Join-Path $root "tests") -p "test_artifacts.py" -v
+python -m unittest discover -s (Join-Path $root "tests") -p "test_resource_access.py" -v
+python -m unittest discover -s (Join-Path $root "tests") -p "test_desktop_shell.py" -v
 
 Write-Host "P2 local test completed." -ForegroundColor Green
 Write-Host "Workspace database: $database"
