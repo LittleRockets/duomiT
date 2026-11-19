@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .flow_drafts import FlowDraftSnapshot, SqliteFlowDraftStore
+from .flow_compiler import FlowCompilation, compile_flow_draft
 from .foundation import OrganizationContext
 
 
@@ -63,6 +64,14 @@ class NativeFlowViewModel:
         try: return store.validate(self._context, draft_id)
         finally: store.close()
 
+    def compile_review(self, draft_id: str) -> FlowCompilation:
+        """Produce a pinned, in-memory ProcessIntent review; no Proposal or Run is created."""
+        store = SqliteFlowDraftStore(self._database)
+        try:
+            snapshot = store.get_snapshot(self._context, draft_id)
+            return compile_flow_draft(self._context, store, draft_id, snapshot.semantic_digest)
+        finally: store.close()
+
     def node_domain(self, node: dict) -> str:
         store = SqliteFlowDraftStore(self._database)
         try: return store.get_template(node["template_id"], node["template_version"]).domain
@@ -84,6 +93,7 @@ class NativeFlowDraftEditor:
             ttk.Button(toolbar, text=f"Add {label}", command=lambda item=label: self._add(item)).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="Connect", command=self._start_connect).pack(side="left", padx=(12, 6))
         ttk.Button(toolbar, text="Validate", command=self._validate).pack(side="left")
+        ttk.Button(toolbar, text="Review intent", command=self._review_intent).pack(side="left", padx=(6, 0))
         self._status = tk.StringVar(value="Add controlled nodes, drag layout, then connect compatible nodes.")
         ttk.Label(toolbar, textvariable=self._status).pack(side="right")
         self._canvas = tk.Canvas(root, bg="#0b1b2a", highlightthickness=1, highlightbackground="#2a465d")
@@ -150,3 +160,23 @@ class NativeFlowDraftEditor:
         self._status.set(f"Draft validation: {report['status']}.")
         if report["status"] != "valid":
             messagebox.showwarning("FlowDraft validation", "Add or repair required controlled connections before compiling.", parent=self._window)
+
+    def _review_intent(self):
+        try:
+            compilation = self._model.compile_review(self._draft_id)
+        except Exception as error:
+            messagebox.showerror("Cannot compile review", str(error), parent=self._window)
+            return
+        dialog = tk.Toplevel(self._window)
+        dialog.title("ProcessIntent review · non-executable")
+        dialog.transient(self._window); dialog.geometry("760x470")
+        body = ttk.Frame(dialog, padding=18); body.pack(fill="both", expand=True)
+        ttk.Label(body, text="Pinned ProcessIntent preview", font=("Segoe UI", 14, "bold")).pack(anchor="w")
+        ttk.Label(body, text=f"Semantic revision {compilation.semantic_revision} · {compilation.semantic_digest[:16]}…\nThis preview creates no Proposal, WorkUnit, permission, model call, or Run.").pack(anchor="w", pady=(5, 12))
+        table = ttk.Treeview(body, columns=("domain", "template", "intent"), show="headings", height=10)
+        for name, title, width in (("domain", "Domain", 110), ("template", "Template", 180), ("intent", "Pinned intent", 370)):
+            table.heading(name, text=title); table.column(name, width=width, minwidth=90)
+        for intent in compilation.intents:
+            table.insert("", "end", values=(intent.domain, f"{intent.template_id}@{intent.template_version}", intent.intent_id))
+        table.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"Compilation digest: {compilation.digest}", wraplength=700).pack(anchor="w", pady=(12, 0))
