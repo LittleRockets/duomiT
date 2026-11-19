@@ -183,6 +183,10 @@ class SqliteFlowDraftStore:
         with self._transaction():
             return self._snapshot(context, draft_id)
 
+    def get_template(self, template_id: str, template_version: str) -> FlowNodeTemplate:
+        """Expose template metadata without exposing the storage adapter internals."""
+        return self._catalog.get(template_id, template_version)
+
     @staticmethod
     def _layout(x: int, y: int):
         require(type(x) is int and -100000 <= x <= 100000 and type(y) is int and -100000 <= y <= 100000,
