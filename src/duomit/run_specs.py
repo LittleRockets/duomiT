@@ -99,6 +99,12 @@ class SqliteRunSpecStore:
                               canonical_json(body), content_digest))
             return self._from_body(run_spec_id, body, content_digest)
 
+    def latest_for_build(self, context: OrganizationContext, build_spec_id: str) -> RunSpecification | None:
+        identifier(build_spec_id)
+        row = self._db.execute("SELECT id,body_json,content_digest FROM run_specs WHERE organization_id=? AND owner_membership_id=? AND build_spec_id=? ORDER BY rowid DESC LIMIT 1",
+                               (context.organization_id, context.membership_id, build_spec_id)).fetchone()
+        return None if row is None else self._from_body(row["id"], json.loads(row["body_json"]), row["content_digest"])
+
     @staticmethod
     def _from_body(run_spec_id: str, body: dict, content_digest: str) -> RunSpecification:
         return RunSpecification(run_spec_id, body["build_spec_id"], body["process_spec_id"],

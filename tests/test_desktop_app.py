@@ -53,6 +53,7 @@ class NativeDesktopViewTests(unittest.TestCase):
         self.assertEqual(need.completeness, "sufficient")
         self.assertEqual(len(model.derive_process(task).quality_gates), 1)
         self.assertEqual(model.complete_planning_skeleton(task).need_id, need.need_id)
+        self.assertTrue(model.planning_status(task)["proposal_ready"])
 
     def test_reselecting_same_task_does_not_reenter_tree_selection(self):
         class Tree:
@@ -65,7 +66,11 @@ class NativeDesktopViewTests(unittest.TestCase):
             def set(self, _value): pass
 
         app = object.__new__(DuomitDesktopApp)
+        class Model:
+            @staticmethod
+            def planning_status(_task_id): return {"need": "missing", "workflow": "missing", "build": "missing", "run": "missing", "proposal_ready": False}
         app._tasks = (TaskNode("taskone", "Task", "draft", "Goal", 1, None, 0, 0),)
+        app._model = Model()
         app._selected_task_id = None
         app._tree = Tree()
         app._detail = Detail()

@@ -146,6 +146,26 @@ class NativeTaskViewModel:
         finally:
             runs.close(); builds.close(); processes.close(); needs.close(); planning.close()
 
+    def planning_status(self, workspace_task_id: str) -> dict:
+        planning = SqliteTaskRevisionStore(self._database); needs = SqliteNeedStore(self._database)
+        processes = SqliteProcessSpecStore(self._database); builds = SqliteBuildSpecStore(self._database)
+        runs = SqliteRunSpecStore(self._database)
+        try:
+            task = planning.get_current_for_workspace_task(self._context, workspace_task_id)
+            if task is None: return {"need": "missing", "workflow": "missing", "build": "missing", "run": "missing", "proposal_ready": False}
+            records = needs.list_for_task_revision(self._context, task.task_revision_id)
+            need = records[-1] if records else None
+            process = processes.latest_for_need(self._context, need.need_id) if need else None
+            build = builds.latest_for_task_revision(self._context, task.task_revision_id)
+            run = runs.latest_for_build(self._context, build.build_spec_id) if build else None
+            ready = bool(need and process and build and run)
+            if ready:
+                validate_four_domain_handoff(task, need, process, build, run)
+            return {"need": need.completeness if need else "missing", "workflow": "ready" if process else "missing",
+                    "build": "ready" if build else "missing", "run": "ready" if run else "missing", "proposal_ready": ready}
+        finally:
+            runs.close(); builds.close(); processes.close(); needs.close(); planning.close()
+
 
 class DuomitDesktopApp:
     """Read-only native Project/Task shell. All mutations remain explicit ports."""
@@ -294,7 +314,10 @@ class DuomitDesktopApp:
             accepted = "; ".join(item.statement for item in revision.acceptance)
             constraints = "; ".join(revision.constraints) or "None"
             planning = f"Deliverable: {revision.deliverable}\nBlocking acceptance: {accepted}\nConstraints: {constraints}"
-        self._detail.set(f"{task.title} · {task.state} · workspace revision {task.revision}\n{task.goal}\n{planning}\nNo Proposal, WorkUnit, Run, or external operation exists for this draft.")
+        status = self._model.planning_status(task.task_id)
+        domains = f"Planning: Need {status['need']} · Workflow {status['workflow']} · Build {status['build']} · Run {status['run']}"
+        readiness = "Proposal-ready: validated planning chain" if status["proposal_ready"] else "Proposal-ready: complete the missing planning domains"
+        self._detail.set(f"{task.title} · {task.state} · workspace revision {task.revision}\n{task.goal}\n{planning}\n{domains}\n{readiness}\nNo Proposal, WorkUnit, Run, or external operation exists for this draft.")
 
     def _open_project_dialog(self):
         dialog = tk.Toplevel(self._root)

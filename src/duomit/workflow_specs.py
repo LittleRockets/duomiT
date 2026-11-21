@@ -98,6 +98,12 @@ class SqliteProcessSpecStore:
                               canonical_json(draft), content_digest))
             return self._from_body(process_id, draft, content_digest)
 
+    def latest_for_need(self, context: OrganizationContext, need_id: str) -> ProcessSpecification | None:
+        identifier(need_id)
+        row = self._db.execute("SELECT id,body_json,content_digest FROM process_specs WHERE organization_id=? AND owner_membership_id=? AND need_id=? ORDER BY rowid DESC LIMIT 1",
+                               (context.organization_id, context.membership_id, need_id)).fetchone()
+        return None if row is None else self._from_body(row["id"], json.loads(row["body_json"]), row["content_digest"])
+
     @staticmethod
     def _from_body(process_id: str, body: dict, content_digest: str) -> ProcessSpecification:
         return ProcessSpecification(process_id, body["need_id"],

@@ -104,6 +104,12 @@ class SqliteBuildSpecStore:
                               canonical_json(body), content_digest))
             return self._from_body(build_id, body, content_digest)
 
+    def latest_for_task_revision(self, context: OrganizationContext, task_revision_id: str) -> BuildSpecification | None:
+        identifier(task_revision_id)
+        row = self._db.execute("SELECT id,body_json,content_digest FROM build_specs WHERE organization_id=? AND owner_membership_id=? AND task_revision_id=? ORDER BY rowid DESC LIMIT 1",
+                               (context.organization_id, context.membership_id, task_revision_id)).fetchone()
+        return None if row is None else self._from_body(row["id"], json.loads(row["body_json"]), row["content_digest"])
+
     @staticmethod
     def _from_body(build_id: str, body: dict, content_digest: str) -> BuildSpecification:
         return BuildSpecification(build_id, body["task_revision_id"], body["need_id"], body["process_spec_id"],
