@@ -62,7 +62,7 @@ python -m duomit --model sequential
 | **节点目录与提案审阅** | 不可变 NodeDescriptor 版本，以及由固定流程和节点输入生成的只读审阅 Proposal。 |
 | **Need、Workflow、Build 与 Run** | 经校验的领域交接可推导可重放的过程、交付、就绪与可观测性规格；跨任务混搭会被拒绝，且不会创建可执行工作。 |
 | **Builder LLM 边界** | Provider API 输出只能解码为严格的 Need 候选，并按 TaskRevision 再校验；它不能携带权限、工具或状态变更。 |
-| **原生 Desktop 壳层** | 原生、可访问的本机 Project/Task 工作台采用共享组件系统，提供受控 FlowDraft 控件、绑定当前 TaskRevision 的手工 Need 审阅入口，以及受阻塞澄清条件保护的 Workflow 过程规格生成；界面不会执行工作、调用模型或授予权限。 |
+| **原生 Desktop 壳层** | 原生、可访问的本机 Project/Task 工作台采用共享组件系统，提供受控 FlowDraft 控件、手工 Need 审阅、受阻塞澄清条件保护的 Workflow 生成，以及绑定同一 TaskRevision 并通过校验的 Need → Workflow → Build → Run 规划骨架；界面不会执行工作、调用模型或授予权限。 |
 
 ## 模型连接
 

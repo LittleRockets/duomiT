@@ -17,6 +17,9 @@ from .desktop_design import DesktopTokens, configure_desktop_style, status_palet
 from .task_revisions import AcceptanceCriterion, SqliteTaskRevisionStore, TaskRevision
 from .need_records import NeedCandidate, NeedOutcome, NeedUnknown, SqliteNeedStore
 from .workflow_specs import SqliteProcessSpecStore
+from .build_specs import SqliteBuildSpecStore
+from .run_specs import SqliteRunSpecStore
+from .domain_handoffs import validate_four_domain_handoff
 from .workspace import LocalWorkspace
 
 
@@ -127,6 +130,22 @@ class NativeTaskViewModel:
         finally:
             processes.close(); needs.close(); planning.close()
 
+    def complete_planning_skeleton(self, workspace_task_id: str):
+        planning = SqliteTaskRevisionStore(self._database); needs = SqliteNeedStore(self._database)
+        processes = SqliteProcessSpecStore(self._database); builds = SqliteBuildSpecStore(self._database)
+        runs = SqliteRunSpecStore(self._database)
+        try:
+            task = planning.get_current_for_workspace_task(self._context, workspace_task_id)
+            if task is None: raise ValueError("This Task has no versioned planning input.")
+            records = needs.list_for_task_revision(self._context, task.task_revision_id)
+            if not records: raise ValueError("先定义 Need，再完成规划骨架。")
+            need = records[-1]; process = processes.derive(self._context, need)
+            build = builds.derive(self._context, task, need, process)
+            run = runs.derive(self._context, build, process)
+            return validate_four_domain_handoff(task, need, process, build, run)
+        finally:
+            runs.close(); builds.close(); processes.close(); needs.close(); planning.close()
+
 
 class DuomitDesktopApp:
     """Read-only native Project/Task shell. All mutations remain explicit ports."""
@@ -198,6 +217,7 @@ class DuomitDesktopApp:
         ttk.Label(toolbar, text="任务图", style="Section.TLabel").pack(side="left")
         ttk.Button(toolbar, text="编辑任务", style="Secondary.TButton", command=self._open_task_edit_dialog).pack(side="right")
         ttk.Button(toolbar, text="生成 Workflow", style="Secondary.TButton", command=self._derive_workflow).pack(side="right", padx=(0, 8))
+        ttk.Button(toolbar, text="完成规划骨架", style="Primary.TButton", command=self._complete_planning_skeleton).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="定义 Need", style="Secondary.TButton", command=self._open_need_dialog).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="查看流程", style="Secondary.TButton", command=self._open_flow_list).pack(side="right", padx=(0, 8))
         ttk.Button(toolbar, text="新建流程", style="Quiet.TButton", command=self._open_flow_editor).pack(side="right", padx=(0, 8))
@@ -455,6 +475,18 @@ class DuomitDesktopApp:
             messagebox.showwarning("暂不能生成 Workflow", f"{error}\n请完成 Need 的待澄清项后重试。", parent=self._root); return
         messagebox.showinfo("Workflow 已生成", f"已生成可审阅的 ProcessSpecification。\n阶段：{len(process.stages)}\n质量门：{len(process.quality_gates)}\n不会创建运行或外部操作。", parent=self._root)
         self._announce("Workflow 过程规格已生成，可继续审阅 Build/Run 输入。")
+
+    def _complete_planning_skeleton(self):
+        selected = self._tree.selection()
+        task = next((item for item in self._tasks if selected and item.task_id == selected[0]), None)
+        if task is None:
+            messagebox.showinfo("选择任务", "请选择任务后再完成规划骨架。", parent=self._root); return
+        try:
+            plan = self._model.complete_planning_skeleton(task.task_id)
+        except Exception as error:
+            messagebox.showwarning("规划骨架未完成", f"{error}\n请先处理 Need 的阻塞澄清项。", parent=self._root); return
+        messagebox.showinfo("规划骨架已验证", "Need → Workflow → Build → Run 已形成同一版本化规划链。\n\n未创建 Proposal、WorkUnit 或 Run；也未执行任何外部操作。", parent=self._root)
+        self._announce("四个能力域的规划骨架已固定并通过交接校验。")
 
     def run(self):
         self._root.mainloop()
