@@ -59,7 +59,7 @@ python -m duomit --model sequential
 | **任务规划输入** | 不可变 TaskRevision、交付物与 blocking 验收门槛、乐观并发校验。 |
 | **任务材料** | 不可变 Artifact、精确版本 ResourceGrant、撤权复核与 ContextPackage 引用。 |
 | **流程意图** | 受控内置 FlowDraft 模板、独立语义/布局修订、有向无环边与固定摘要 ProcessIntent 映射。 |
-| **节点目录与提案审阅** | 不可变 NodeDescriptor 版本，以及从已验证、固定的 FlowDraft 输入创建的 Desktop 只读审阅 Proposal。 |
+| **节点目录与提案审阅** | 不可变 NodeDescriptor 版本、从已验证 FlowDraft 输入创建的 Desktop 只读审阅 Proposal，以及带理由和乐观并发保护的追加式接受/拒绝决定。 |
 | **Need、Workflow、Build 与 Run** | 经校验的领域交接可推导可重放的过程、交付、就绪与可观测性规格；跨任务混搭会被拒绝，且不会创建可执行工作。 |
 | **Builder LLM 边界** | Provider API 输出只能解码为严格的 Need 候选，并按 TaskRevision 再校验；它不能携带权限、工具或状态变更。 |
 | **原生 Desktop 壳层** | 原生、可访问的本机 Project/Task 工作台提供受控 FlowDraft 控件、手工 Need 审阅、经校验的 Need → Workflow → Build → Run 规划骨架，以及只读的逐域就绪状态投影；界面不会执行工作、调用模型或授予权限。 |

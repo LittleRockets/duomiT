@@ -44,6 +44,8 @@ class ProposalTests(unittest.TestCase):
                          {"need": ("need_node", "1_0"), "workflow": ("workflow_node", "1_0")}, "requestone").proposal_id, proposal.proposal_id)
         with self.assertRaises(DuomitError):
             self.store.get(self.other, proposal.proposal_id)
+        decision = self.store.decide(self.context, proposal.proposal_id, 1, "accepted", "Reviewed pinned inputs")
+        self.assertEqual(decision.decision, "accepted")
 
     def test_rejects_missing_or_wrong_domain_descriptor(self):
         compilation = self.compilation()
