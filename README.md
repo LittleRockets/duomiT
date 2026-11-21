@@ -59,7 +59,7 @@ The command uses a deterministic offline reference model and does not require an
 | **Task planning input** | Immutable TaskRevision, deliverable and blocking-acceptance gates, and optimistic concurrency checks. |
 | **Materials** | Immutable artifacts, exact-version ResourceGrant, revocation revalidation, and ContextPackage references. |
 | **Flow intent** | Controlled FlowDraft templates, independent semantic/layout revisions, directed acyclic edges, and pinned ProcessIntent mapping. |
-| **Node catalog and proposal review** | Immutable NodeDescriptor versions and review-only Proposal creation from pinned flow and descriptor inputs. |
+| **Node catalog and proposal review** | Immutable NodeDescriptor versions and Desktop creation of review-only Proposals from validated, pinned FlowDraft inputs. |
 | **Need, Workflow, Build, and Run** | Validated domain handoffs derive replayable process, delivery, readiness, and observability specifications; cross-task mixing is rejected and no executable work is created. |
 | **Builder LLM boundary** | Provider API output is decoded only as a strict Need candidate and revalidated against TaskRevision; it cannot carry authority, tools, or state changes. |
 | **Native Desktop shell** | A native, accessible local Project/Task workspace with controlled FlowDraft controls, manual Need review, a validated Need → Workflow → Build → Run skeleton, and a read-only per-domain readiness projection. It never executes work, calls models, or grants access. |

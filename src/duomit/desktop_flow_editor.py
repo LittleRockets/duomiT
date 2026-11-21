@@ -10,6 +10,9 @@ from .flow_drafts import FlowDraftSnapshot, SqliteFlowDraftStore
 from .flow_compiler import FlowCompilation, compile_flow_draft
 from .foundation import OrganizationContext
 from .desktop_design import DesktopTokens, configure_desktop_style, status_palette
+from .node_catalog import NodeDescriptor, SqliteNodeCatalog
+from .proposals import SqliteProposalStore
+from .contracts import digest
 
 
 TEMPLATES = {
@@ -114,6 +117,24 @@ class NativeFlowViewModel:
             return compile_flow_draft(self._context, store, draft_id, snapshot.semantic_digest)
         finally: store.close()
 
+    def create_reference_proposal(self, task_id: str, draft_id: str):
+        """Create a review-only proposal using fixed public reference descriptors."""
+        flow = SqliteFlowDraftStore(self._database); catalog = SqliteNodeCatalog(self._database)
+        proposals = SqliteProposalStore(self._database, catalog)
+        try:
+            snapshot = flow.get_snapshot(self._context, draft_id)
+            compilation = compile_flow_draft(self._context, flow, draft_id, snapshot.semantic_digest)
+            bindings = {}
+            for domain in sorted({item.domain for item in compilation.intents}):
+                node_id = f"reference_{domain}_node"
+                catalog.register(self._context, NodeDescriptor(node_id, "1_0", domain, "reference_review",
+                               ("deterministic",), (), f"{domain}_input", f"{domain}_output"))
+                bindings[domain] = (node_id, "1_0")
+            return proposals.propose(self._context, task_id, compilation, bindings,
+                                     digest({"task": task_id, "compilation": compilation.digest})[:32])
+        finally:
+            proposals.close(); catalog.close(); flow.close()
+
     def node_domain(self, node: dict) -> str:
         store = SqliteFlowDraftStore(self._database)
         try: return store.get_template(node["template_id"], node["template_version"]).domain
@@ -140,6 +161,7 @@ class NativeFlowDraftEditor:
         ttk.Button(toolbar, text="自动布局", style="Secondary.TButton", command=self._auto_layout).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="验证", style="Secondary.TButton", command=self._validate).pack(side="left")
         ttk.Button(toolbar, text="审阅 ProcessIntent", style="Primary.TButton", command=self._review_intent).pack(side="right")
+        ttk.Button(toolbar, text="创建审阅 Proposal", style="Secondary.TButton", command=self._create_proposal).pack(side="right", padx=(0, 8))
         self._status = tk.StringVar(value="添加受控节点后，可拖拽布局并连接兼容端口。")
         ttk.Label(toolbar, textvariable=self._status, style="Muted.TLabel").pack(side="right", padx=(0, 14))
         self._canvas = tk.Canvas(root, bg=DesktopTokens.canvas, highlightthickness=1, highlightbackground=DesktopTokens.line)
@@ -272,3 +294,12 @@ class NativeFlowDraftEditor:
             table.insert("", "end", values=(intent.domain, f"{intent.template_id}@{intent.template_version}", intent.intent_id))
         table.pack(fill="both", expand=True)
         ttk.Label(body, text=f"Compilation digest: {compilation.digest}", wraplength=700).pack(anchor="w", pady=(12, 0))
+
+    def _create_proposal(self):
+        try:
+            proposal = self._model.create_reference_proposal(self._snapshot.owner_ref, self._draft_id)
+        except Exception as error:
+            messagebox.showwarning("无法创建 Proposal", f"{error}\n请先验证并完成流程草稿。", parent=self._window)
+            return
+        messagebox.showinfo("Proposal 已就绪", f"已固定 {len(proposal.domain_nodes)} 个参考节点版本，状态为 ready_for_review。\n不会接受、分发或执行该提案。", parent=self._window)
+        self._status.set("审阅 Proposal 已创建；等待人工审阅。")

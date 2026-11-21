@@ -96,6 +96,8 @@ class NativeDesktopViewTests(unittest.TestCase):
         self.assertEqual(flow.validate(draft.flow_draft_id)["status"], "valid")
         compilation = flow.compile_review(draft.flow_draft_id)
         self.assertEqual(tuple(item.domain for item in compilation.intents), ("need", "workflow"))
+        proposal = flow.create_reference_proposal(task, draft.flow_draft_id)
+        self.assertEqual(proposal.state, "ready_for_review")
         self.assertEqual(tuple(item.flow_draft_id for item in flow.list_for_task(task)), (draft.flow_draft_id,))
 
 
